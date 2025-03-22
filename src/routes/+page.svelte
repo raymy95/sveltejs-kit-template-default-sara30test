@@ -20,7 +20,7 @@
 	<h1>
 		<span class="welcome">
 			<picture>
-				<!-- <source srcset={welcome} type="image/webp" /> -->
+				<source srcset={welcome} type="image/webp" />
 				<img src={"lib/images/svelte-welcome.png"}  alt="Welcome" />
 			</picture>
 		</span>
@@ -31,7 +31,7 @@
 
 		<p>Current URL: {url}</p>
 
-		<img src="https://chwtgvxmvxswmkpttqoz.supabase.co/storage/v1/object/sign/images/476617091_1667970033814757_8381891033472949217_n-Photoroom.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJpbWFnZXMvNDc2NjE3MDkxXzE2Njc5NzAwMzM4MTQ3NTdfODM4MTg5MTAzMzQ3Mjk0OTIxN19uLVBob3Rvcm9vbS5wbmciLCJpYXQiOjE3NDI2NDE5NzgsImV4cCI6MTc0MzI0Njc3OH0.qFAv1qeeuX3IM4asObAxMKQGy-gzF3V27BCCTPpitec"   />
+		<!-- <img src="https://chwtgvxmvxswmkpttqoz.supabase.co/storage/v1/object/sign/images/476617091_1667970033814757_8381891033472949217_n-Photoroom.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJpbWFnZXMvNDc2NjE3MDkxXzE2Njc5NzAwMzM4MTQ3NTdfODM4MTg5MTAzMzQ3Mjk0OTIxN19uLVBob3Rvcm9vbS5wbmciLCJpYXQiOjE3NDI2NDE5NzgsImV4cCI6MTc0MzI0Njc3OH0.qFAv1qeeuX3IM4asObAxMKQGy-gzF3V27BCCTPpitec"   /> -->
 
 		
 		
