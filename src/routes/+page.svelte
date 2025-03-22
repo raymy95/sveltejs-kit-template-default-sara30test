@@ -2,6 +2,13 @@
 	import Counter from './Counter.svelte';
 	import welcome from '$lib/images/svelte-welcome.webp';
 	import welcomeFallback from '$lib/images/svelte-welcome.png';
+	import { page } from '$app/stores';
+
+	import { onMount } from 'svelte';
+
+    let url = ``;
+
+    onMount(() => url = window.location.href);
 </script>
 
 <svelte:head>
@@ -13,12 +20,16 @@
 	<h1>
 		<span class="welcome">
 			<picture>
-				<source srcset={welcome} type="image/webp" />
-				<img src={welcomeFallback} alt="Welcome" />
+				<!-- <source srcset={welcome} type="image/webp" /> -->
+				<img src={"lib/images/svelte-welcome.png"}  alt="Welcome" />
 			</picture>
 		</span>
 
 		to your new<br />SvelteKit app
+
+		<p>Current URL: {$page.path}</p>
+
+		<p>Current URL: {url}</p>
 	</h1>
 
 	<h2>
