@@ -1,0 +1,11 @@
+{
+	"/": [
+		"src/routes/+page.js"
+	],
+	"/about": [
+		"src/routes/about/+page.js"
+	],
+	"/collection": [
+		"src/routes/collection/+page.js"
+	]
+}
