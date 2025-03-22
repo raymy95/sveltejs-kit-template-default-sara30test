@@ -1,27 +1,16 @@
 <script>
-	import { goto } from '$app/navigation';
-	import { images} from "../images.js";
 	
-
 </script>
 
 <svelte:head>
-	<title>Collection</title>
-	<meta name="description" content="Your collection page" />
+	<title>Classement</title>
+	<meta name="description" content="Classement" />
 </svelte:head>
 
 <div class="container">
-	<h1>Collection</h1>
+	<h1>Classement</h1>
 	
-	<div class="image-grid">
-		{#each images as image}
-			<a href="/card/{image.cardId}">
-				<div  class="image-container">
-					<img src={image.url} alt={image.alt} loading="lazy" />
-				</div>
-			</a>
-		{/each}
-	</div>
+	
 </div>
 
 <style>
