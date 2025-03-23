@@ -1,11 +1,29 @@
 {
 	"/": [
-		"src/routes/+page.js"
+		"src/routes/+page.js",
+		"src/routes/+layout.js",
+		"src/routes/+layout.js"
 	],
 	"/about": [
-		"src/routes/about/+page.js"
+		"src/routes/about/+page.js",
+		"src/routes/+layout.js"
+	],
+	"/api/auth": [
+		"src/routes/api/auth/+server.js"
+	],
+	"/card/[slug]": [
+		"src/routes/card/[slug]/+page.server.js",
+		"src/routes/+layout.js"
 	],
 	"/collection": [
-		"src/routes/collection/+page.js"
+		"src/routes/collection/+page.js",
+		"src/routes/+layout.js"
+	],
+	"/login": [
+		"src/routes/+layout.js"
+	],
+	"/score": [
+		"src/routes/score/+page.js",
+		"src/routes/+layout.js"
 	]
 }
