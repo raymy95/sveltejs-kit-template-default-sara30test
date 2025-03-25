@@ -1,5 +1,8 @@
 import { json } from '@sveltejs/kit';
 
+// Disable prerendering for this endpoint
+export const prerender = false;
+
 // Generate a random password that changes daily
 function generatePassword() {
     // const date = new Date().toISOString().split('T')[0];
