@@ -1,22 +1,21 @@
-import { json } from '@sveltejs/kit';
+// Since we're using static adapter, we'll move the auth logic to the client
+export const prerender = true;
 
-// Generate a random password that changes daily
-function generatePassword() {
-    // const date = new Date().toISOString().split('T')[0];
-    // const seed = date + 'your-secret-salt';
-    // let hash = 0;
-    // for (let i = 0; i < seed.length; i++) {
-    //     const char = seed.charCodeAt(i);
-    //     hash = ((hash << 5) - hash) + char;
-    //     hash = hash & hash;
-    // }
-    // return Math.abs(hash).toString(16).substring(0, 6);
-    return "remyremy";
+export async function GET() {
+    return new Response(JSON.stringify({ message: 'Auth endpoint' }), {
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
 }
 
 export async function POST({ request }) {
     const { password } = await request.json();
-    const isValid = password === generatePassword();
+    const isValid = password === "remyremy";
     
-    return json({ isValid });
+    return new Response(JSON.stringify({ isValid }), {
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
 }
