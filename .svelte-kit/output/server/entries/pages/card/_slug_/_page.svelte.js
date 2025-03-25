@@ -6,7 +6,7 @@ function _page($$payload, $$props) {
     $$payload2.title = `<title>Carte</title>`;
     $$payload2.out += `<meta name="description" content="Carte">`;
   });
-  $$payload.out += `<div class="container svelte-oath83"><h1 class="svelte-oath83">Carte</h1> <h1 class="svelte-oath83">${escape_html(data.cardId)}</h1></div>`;
+  $$payload.out += `<div class="container svelte-1uqzr6z"><h1 class="svelte-1uqzr6z">Carte</h1> <h1 class="svelte-1uqzr6z">${escape_html(data.cardId)}</h1></div>`;
   pop();
 }
 export {
