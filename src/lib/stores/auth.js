@@ -9,8 +9,15 @@ const createAuthStore = () => {
         subscribe,
         login: async (password) => {
             try {
-                // Instead of making an API call, we'll handle the auth directly
-                const isValid = password === "remyremy";
+                const response = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ password }),
+                });
+                
+                const { isValid } = await response.json();
                 
                 if (isValid && browser) {
                     localStorage.setItem('auth', 'true');
