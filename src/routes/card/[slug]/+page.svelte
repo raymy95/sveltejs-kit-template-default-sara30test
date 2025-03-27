@@ -8,20 +8,26 @@
     /** @type {{ cardId: string }} */
     let { data } = $props();
     
-    let card = null;
-    let loading = true;
-    let error = null;
+    let card = $state(null);
+    let loading = $state(true);
+    let error = $state(null);
     let answers = [];
     let selectedAnswer = null;
     let showResult = false;
     let isCorrect = false;
+    let alreadyAnsweredCorrectly = $state(false);
+    let initialized = false;
+    let updatingDatabase = $state(false);
+    let wrongAnswers = $state(0);
 
     async function loadCard() {
+        if (!initialized || !$auth.isAuthenticated || !$auth.userId || !data.cardId) {
+            return;
+        }
+
         try {
-            if (!$auth.isAuthenticated || !$auth.userId) {
-                goto(`/?token=${$page.url.searchParams.get('token')}`);
-                return;
-            }
+            loading = true;
+            error = null;
 
             // Load card details first
             const { data: cardData, error: cardError } = await supabase
@@ -53,8 +59,12 @@
                 throw userCardError;
             }
 
-            // Set up answers if the card has a question
-            if (cardData.question && cardData.correct_answer) {
+            // Check if user has already answered correctly and get wrong answers count
+            alreadyAnsweredCorrectly = userCard.answered_correctly;
+            wrongAnswers = userCard.wrong_answers || 0;
+
+            // Set up answers if the card has a question and hasn't been answered correctly
+            if (cardData.question && cardData.correct_answer && !alreadyAnsweredCorrectly) {
                 answers = [
                     { text: cardData.correct_answer, isCorrect: true },
                     { text: cardData.wrong_answer_1, isCorrect: false },
@@ -72,10 +82,37 @@
         }
     }
 
-    function checkAnswer(answer) {
-        selectedAnswer = answer;
-        isCorrect = answer.isCorrect;
-        showResult = true;
+    async function checkAnswer(answer) {
+        if (!$auth.userId || !data.cardId || updatingDatabase) return;
+
+        try {
+            updatingDatabase = true;
+            selectedAnswer = answer;
+            isCorrect = answer.isCorrect;
+            showResult = true;
+
+            if (!isCorrect) {
+                wrongAnswers++;
+            }
+
+            // Call the function to update the score
+            const { error: updateError } = await supabase.rpc('update_card_score', {
+                user_id_param: $auth.userId,
+                card_id_param: data.cardId,
+                is_correct: isCorrect
+            });
+
+            if (updateError) throw updateError;
+            
+            if (isCorrect) {
+                alreadyAnsweredCorrectly = true;
+            }
+        } catch (e) {
+            console.error('Error updating score:', e);
+            error = 'Failed to update score';
+        } finally {
+            updatingDatabase = false;
+        }
     }
 
     function goBack() {
@@ -84,7 +121,14 @@
 
     onMount(() => {
         auth.initialize();
-        ;
+        initialized = true;
+    });
+
+    // Watch for changes in initialization and auth state
+    $effect(() => {
+        if (initialized && $auth.isAuthenticated && $auth.userId && data.cardId) {
+            loadCard();
+        }
     });
 </script>
 
@@ -94,7 +138,6 @@
 </svelte:head>
 
 <div class="container">
-  {#await loadCard() then }
     {#if loading}
         <div class="loading">
             <p>Loading card...</p>
@@ -103,6 +146,10 @@
         <div class="error-container">
             <p class="error">{error}</p>
             <button class="back-button" on:click={goBack}>← Back to Collection</button>
+        </div>
+    {:else if !initialized || !$auth.isAuthenticated}
+        <div class="loading">
+            <p>Initializing...</p>
         </div>
     {:else if card}
         <button class="back-button" on:click={goBack}>← Back to Collection</button>
@@ -116,38 +163,51 @@
             </div>
         </div>
 
-        {#if card.question && answers.length > 0}
+        {#if card.question}
             <div class="question-section">
                 <h2>Question:</h2>
                 <p class="question">{card.question}</p>
 
-                <div class="answers">
-                    {#each answers as answer}
-                        <button 
-                            class="answer-button"
-                            class:selected={selectedAnswer === answer}
-                            class:correct={showResult && answer.isCorrect}
-                            class:incorrect={showResult && selectedAnswer === answer && !answer.isCorrect}
-                            on:click={() => !showResult && checkAnswer(answer)}
-                            disabled={showResult}
-                        >
-                            {answer.text}
-                        </button>
-                    {/each}
-                </div>
+                {#if alreadyAnsweredCorrectly}
+                    <div class="already-answered">
+                        <p>You've already answered this question correctly!</p>
+                        <p>The correct answer is: {card.correct_answer}</p>
+                        <p>It took you {wrongAnswers} wrong {wrongAnswers === 1 ? 'attempt' : 'attempts'} before getting it right.</p>
+                    </div>
+                {:else if answers.length > 0}
+                    <div class="answers">
+                        {#each answers as answer}
+                            <button 
+                                class="answer-button"
+                                class:selected={selectedAnswer === answer}
+                                class:updating={updatingDatabase}
+                                on:click={() => !updatingDatabase && checkAnswer(answer)}
+                                disabled={updatingDatabase}
+                            >
+                                {answer.text}
+                                {#if updatingDatabase && selectedAnswer === answer}
+                                    <span class="loading-indicator">...</span>
+                                {/if}
+                            </button>
+                        {/each}
+                    </div>
 
-                {#if showResult}
-                    <div class="result" class:correct={isCorrect} class:incorrect={!isCorrect}>
-                        <p>{isCorrect ? 'Correct!' : 'Incorrect!'}</p>
-                        {#if !isCorrect}
-                            <p>The correct answer was: {card.correct_answer}</p>
+                    {#if showResult}
+                        <div class="result" class:correct={isCorrect} class:incorrect={!isCorrect}>
+                            <p>{isCorrect ? `Correct! +${5 - Math.min(wrongAnswers, 4)} points` : 'Incorrect! Try again!'}</p>
+                        </div>
+                    {/if}
+
+                    <div class="wrong-answers">
+                        <p>Wrong attempts: {wrongAnswers}</p>
+                        {#if wrongAnswers > 0}
+                            <p class="points-info">Next correct answer will give you {5 - Math.min(wrongAnswers, 4)} points</p>
                         {/if}
                     </div>
                 {/if}
             </div>
         {/if}
     {/if}
-    {/await}
 </div>
 
 <style>
@@ -225,6 +285,14 @@
         margin: 1rem 0 2rem;
     }
 
+    .already-answered {
+        text-align: center;
+        padding: 1rem;
+        background: #E8F5E9;
+        border-radius: 4px;
+        color: #2E7D32;
+    }
+
     .answers {
         display: grid;
         gap: 1rem;
@@ -238,6 +306,7 @@
         cursor: pointer;
         font-size: 1rem;
         transition: all 0.2s;
+        position: relative;
     }
 
     .answer-button:hover:not(:disabled) {
@@ -261,6 +330,23 @@
         border-color: #f44336;
     }
 
+    .answer-button.updating {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+    .loading-indicator {
+        position: absolute;
+        right: 1rem;
+        animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+        0% { opacity: 0.3; }
+        50% { opacity: 1; }
+        100% { opacity: 0.3; }
+    }
+
     .result {
         margin-top: 2rem;
         padding: 1rem;
@@ -276,6 +362,20 @@
     .result.incorrect {
         background: #FFEBEE;
         color: #C62828;
+    }
+
+    .wrong-answers {
+        margin-top: 2rem;
+        text-align: center;
+        padding: 1rem;
+        background: #f5f5f5;
+        border-radius: 4px;
+    }
+
+    .points-info {
+        color: var(--color-theme-2);
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
     }
 
     .error {
