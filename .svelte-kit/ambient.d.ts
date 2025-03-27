@@ -26,6 +26,8 @@
  * ```
  */
 declare module '$env/static/private' {
+	export const VITE_SUPABASE_ANON_KEY: string;
+	export const VITE_SUPABASE_URL: string;
 	export const COLORTERM: string;
 	export const TERM: string;
 	export const LSCOLORS: string;
@@ -102,6 +104,8 @@ declare module '$env/static/public' {
  */
 declare module '$env/dynamic/private' {
 	export const env: {
+		VITE_SUPABASE_ANON_KEY: string;
+		VITE_SUPABASE_URL: string;
 		COLORTERM: string;
 		TERM: string;
 		LSCOLORS: string;

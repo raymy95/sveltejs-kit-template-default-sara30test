@@ -11,6 +11,12 @@
 	"/api/auth": [
 		"src/routes/api/auth/+server.js"
 	],
+	"/api/cards": [
+		"src/routes/api/cards/+server.js"
+	],
+	"/api/cards/unlock": [
+		"src/routes/api/cards/unlock/+server.js"
+	],
 	"/card/[slug]": [
 		"src/routes/card/[slug]/+page.js",
 		"src/routes/card/[slug]/+page.server.js",

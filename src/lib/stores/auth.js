@@ -1,44 +1,64 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
+import { supabase } from '$lib/supabase';
 
-// Initialize the auth store
 const createAuthStore = () => {
-    const { subscribe, set } = writable(false);
+    const { subscribe, set } = writable({ isAuthenticated: false, username: null, userId: null });
 
     return {
         subscribe,
-        login: async (password) => {
+        login: async (username) => {
             try {
-                const response = await fetch('/api/auth', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ password }),
-                });
+                // Check if user exists
+                let { data: existingUser, error: selectError } = await supabase
+                    .from('users')
+                    .select('id, username')
+                    .eq('username', username);
+
+                if (selectError) throw selectError;
+
+                let user;
                 
-                const { isValid } = await response.json();
-                
-                if (isValid && browser) {
-                    localStorage.setItem('auth', 'true');
-                    set(true);
+                if (!existingUser || existingUser.length === 0) {
+                    // Create new user
+                    const { data: newUser, error: insertError } = await supabase
+                        .from('users')
+                        .insert([{ username }])
+                        .select()
+                        .single();
+
+                    if (insertError) throw insertError;
+                    user = newUser;
+                } else {
+                    user = existingUser[0];
                 }
-                return isValid;
+
+                if (browser) {
+                    localStorage.setItem('username', username);
+                    localStorage.setItem('userId', user.id);
+                    set({ isAuthenticated: true, username, userId: user.id });
+                }
+
+                return user;
             } catch (error) {
-                console.error('Authentication error:', error);
-                return false;
+                console.error('Login error:', error);
+                throw error;
             }
         },
         logout: () => {
             if (browser) {
-                localStorage.removeItem('auth');
-                set(false);
+                localStorage.removeItem('username');
+                localStorage.removeItem('userId');
+                set({ isAuthenticated: false, username: null, userId: null });
             }
         },
         initialize: () => {
             if (browser) {
-                const isAuthenticated = localStorage.getItem('auth') === 'true';
-                set(isAuthenticated);
+                const username = localStorage.getItem('username');
+                const userId = localStorage.getItem('userId');
+                if (username && userId) {
+                    set({ isAuthenticated: true, username, userId });
+                }
             }
         }
     };
