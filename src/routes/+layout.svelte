@@ -9,27 +9,25 @@
     /** @type {{children: import('svelte').Snippet}} */
     let { children } = $props();
 
-    // Initialize auth state
+    // Initialize auth state based on URL token
     onMount(() => {
-        auth.initialize();
+        const token = new URLSearchParams(window.location.search).get('token');
+        auth.initialize(token);
     });
 
-    // Subscribe to auth state and redirect if not authenticated
-    let isNotAuthenticated = $derived($page.url.pathname !== '/login' && !$auth);
+    // Subscribe to auth state and handle unauthorized access
+    let isAuthenticated = $derived($auth);
     
     $effect(() => {
-        if (isNotAuthenticated) {
-            goto('/login');
+        if (!isAuthenticated) {
+            document.body.innerHTML = '<div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif;"><h1>Unauthorized Access</h1></div>';
         }
     });
 </script>
 
 <div class="app">
-    {#if $auth || $page.url.pathname === '/login'}
-        {#if $auth}
-            <Header />
-        {/if}
-
+    {#if isAuthenticated}
+        <Header />
         <main>
             {@render children()}
         </main>
