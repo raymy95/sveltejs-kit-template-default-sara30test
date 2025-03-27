@@ -1,8 +1,9 @@
 <script>
     import { page } from '$app/stores';
-    import { onMount } from 'svelte';
-    import { supabase } from '$lib/supabase';
     import { goto } from '$app/navigation';
+    import { supabase } from '$lib/supabase';
+    import { auth } from '$lib/stores/auth';
+    import { onMount } from 'svelte';
     
     let cards = [];
     let unlockedCards = new Set();
@@ -17,6 +18,9 @@
 
     onMount(async () => {
         try {
+            // Initialize auth store
+            auth.initialize();
+
             // Load all cards
             const { data: allCards, error: cardsError } = await supabase
                 .from('cards')
@@ -28,15 +32,12 @@
                 cards = allCards;
             }
 
-            // Load user's unlocked cards if username exists in localStorage
-            const username = localStorage.getItem('username');
-            const userId = localStorage.getItem('userId');
-            
-            if (userId) {
+            // Load user's unlocked cards if user is authenticated
+            if ($auth.userId) {
                 const { data: userCards, error: userCardsError } = await supabase
                     .from('user_cards')
                     .select('card_id')
-                    .eq('user_id', userId);
+                    .eq('user_id', $auth.userId);
                 
                 if (userCardsError) throw userCardsError;
                 
@@ -53,6 +54,10 @@
     });
 
     function openUnlockModal(card) {
+        if (!$auth.isAuthenticated) {
+            error = 'Please log in first';
+            return;
+        }
         selectedCard = card;
         password = '';
         error = '';
@@ -60,8 +65,7 @@
     }
 
     async function tryUnlock() {
-        const userId = localStorage.getItem('userId');
-        if (!userId) {
+        if (!$auth.userId) {
             error = 'Please log in first';
             return;
         }
@@ -72,12 +76,28 @@
                 return;
             }
 
+            // First check if the card is already unlocked
+            const { data: existingCards, error: checkError } = await supabase
+                .from('user_cards')
+                .select('id')
+                .eq('user_id', $auth.userId)
+                .eq('card_id', selectedCard.id)
+                .limit(1);
+
+            if (checkError) throw checkError;
+
+            if (existingCards && existingCards.length > 0) {
+                error = 'You already have this card!';
+                return;
+            }
+
+            // Insert the new card
             const { error: unlockError } = await supabase
                 .from('user_cards')
-                .insert([{
-                    user_id: userId,
+                .insert({
+                    user_id: $auth.userId,
                     card_id: selectedCard.id
-                }]);
+                });
 
             if (unlockError) throw unlockError;
 
@@ -85,8 +105,8 @@
             unlockedCards = unlockedCards; // trigger reactivity
             showUnlockModal = false;
         } catch (e) {
-            error = 'Failed to unlock card';
             console.error('Unlock error:', e);
+            error = 'Failed to unlock card';
         }
     }
 </script>
@@ -99,7 +119,14 @@
 <div class="container">
     <h1>Your Card Collection</h1>
     
-    {#if loading}
+    {#if !$auth.isAuthenticated}
+        <div class="login-prompt">
+            <p>Please log in to view and unlock cards.</p>
+            <button on:click={() => goto(`/?token=${$page.url.searchParams.get('token')}`)}>
+                Go to Login
+            </button>
+        </div>
+    {:else if loading}
         <p>Loading cards...</p>
     {:else if error}
         <p class="error">{error}</p>
@@ -127,6 +154,9 @@
             <div class="modal">
                 <h2>Unlock Card</h2>
                 <p>Enter the password to unlock this card:</p>
+                <div class="debug-info">
+                    <p><strong>Debug - Card Password:</strong> {selectedCard.unlock_password}</p>
+                </div>
                 <input
                     type="password"
                     bind:value={password}
@@ -150,6 +180,14 @@
         max-width: 1200px;
         margin: 0 auto;
         padding: 2rem;
+    }
+
+    .login-prompt {
+        text-align: center;
+        padding: 2rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     .cards-grid {
@@ -213,6 +251,14 @@
         border-radius: 8px;
         width: 90%;
         max-width: 400px;
+    }
+
+    .debug-info {
+        background: #f0f0f0;
+        padding: 0.5rem;
+        margin: 1rem 0;
+        border-radius: 4px;
+        font-family: monospace;
     }
 
     .modal input {

@@ -3,7 +3,11 @@ import { browser } from '$app/environment';
 import { supabase } from '$lib/supabase';
 
 const createAuthStore = () => {
-    const { subscribe, set } = writable({ isAuthenticated: false, username: null, userId: null });
+    const { subscribe, set, update } = writable({ 
+        isAuthenticated: false, 
+        username: null, 
+        userId: null 
+    });
 
     return {
         subscribe,
@@ -13,32 +17,39 @@ const createAuthStore = () => {
                 let { data: existingUser, error: selectError } = await supabase
                     .from('users')
                     .select('id, username')
-                    .eq('username', username);
+                    .eq('username', username)
+                    .single();
 
-                if (selectError) throw selectError;
+                if (selectError && selectError.code !== 'PGRST116') throw selectError;
 
                 let user;
                 
-                if (!existingUser || existingUser.length === 0) {
+                if (!existingUser) {
                     // Create new user
                     const { data: newUser, error: insertError } = await supabase
                         .from('users')
-                        .insert([{ username }])
+                        .insert({ username })
                         .select()
                         .single();
 
                     if (insertError) throw insertError;
                     user = newUser;
                 } else {
-                    user = existingUser[0];
+                    user = existingUser;
                 }
+
+                // Set auth state
+                const authState = { 
+                    isAuthenticated: true, 
+                    username: user.username, 
+                    userId: user.id 
+                };
 
                 if (browser) {
-                    localStorage.setItem('username', username);
-                    localStorage.setItem('userId', user.id);
-                    set({ isAuthenticated: true, username, userId: user.id });
+                    localStorage.setItem('authState', JSON.stringify(authState));
                 }
 
+                set(authState);
                 return user;
             } catch (error) {
                 console.error('Login error:', error);
@@ -46,18 +57,29 @@ const createAuthStore = () => {
             }
         },
         logout: () => {
+            const authState = { 
+                isAuthenticated: false, 
+                username: null, 
+                userId: null 
+            };
+
             if (browser) {
-                localStorage.removeItem('username');
-                localStorage.removeItem('userId');
-                set({ isAuthenticated: false, username: null, userId: null });
+                localStorage.removeItem('authState');
             }
+
+            set(authState);
         },
         initialize: () => {
             if (browser) {
-                const username = localStorage.getItem('username');
-                const userId = localStorage.getItem('userId');
-                if (username && userId) {
-                    set({ isAuthenticated: true, username, userId });
+                const storedAuth = localStorage.getItem('authState');
+                if (storedAuth) {
+                    try {
+                        const authState = JSON.parse(storedAuth);
+                        set(authState);
+                    } catch (e) {
+                        console.error('Failed to parse stored auth state:', e);
+                        localStorage.removeItem('authState');
+                    }
                 }
             }
         }
