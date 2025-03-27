@@ -3,26 +3,43 @@
     import '../app.css';
     import { auth } from '$lib/stores/auth';
     import { onMount } from 'svelte';
+    import { goto } from '$app/navigation';
+    import { page } from '$app/stores';
 
     /** @type {{children: import('svelte').Snippet}} */
     let { children } = $props();
 
+    // Initialize auth state
     onMount(() => {
         auth.initialize();
+    });
+
+    // Subscribe to auth state and redirect if not authenticated
+    let isNotAuthenticated = $derived($page.url.pathname !== '/login' && !$auth);
+    
+    $effect(() => {
+        if (isNotAuthenticated) {
+            goto('/login');
+        }
     });
 </script>
 
 <div class="app">
-    <Header />
-    <main>
-        {@render children()}
-    </main>
+    {#if $auth || $page.url.pathname === '/login'}
+        {#if $auth}
+            <Header />
+        {/if}
 
-    <footer>
-        <p>
-            visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to learn about SvelteKit
-        </p>
-    </footer>
+        <main>
+            {@render children()}
+        </main>
+
+        <footer>
+            <p>
+                visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to learn about SvelteKit
+            </p>
+        </footer>
+    {/if}
 </div>
 
 <style>

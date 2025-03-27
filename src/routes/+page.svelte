@@ -1,96 +1,76 @@
 <script>
-    import { auth } from '$lib/stores/auth';
-    
-    let username = '';
-    let error = '';
+	import Counter from './Counter.svelte';
+	import welcome from '$lib/images/svelte-welcome.webp';
+	import welcomeFallback from '$lib/images/svelte-welcome.png';
+	import { page } from '$app/stores';
 
-    async function handleLogin() {
-        if (!username.trim()) {
-            error = 'Please enter a username';
-            return;
-        }
-        
-        try {
-            await auth.login(username);
-            error = '';
-        } catch (e) {
-            error = 'Login failed';
-        }
-    }
+	import { onMount } from 'svelte';
+
+    let url = ``;
+
+    onMount(() => url = window.location.href);
 </script>
 
 <svelte:head>
-    <title>Card Collection Game</title>
-    <meta name="description" content="Card collection game" />
+	<title>Home</title>
+	<meta name="description" content="Svelte demo app" />
 </svelte:head>
 
-<div class="container">
-    {#if !$auth.isAuthenticated}
-        <div class="login-box">
-            <h1>Welcome to Card Collection</h1>
-            <div class="input-group">
-                <input
-                    type="text"
-                    bind:value={username}
-                    placeholder="Enter your username"
-                    on:keydown={(e) => e.key === 'Enter' && handleLogin()}
-                />
-                <button on:click={handleLogin}>Start Playing</button>
-            </div>
-            {#if error}
-                <p class="error">{error}</p>
-            {/if}
-        </div>
-    {:else}
-        <h1>Welcome back, {$auth.username}!</h1>
-        <p>Visit the collection page to view and unlock your cards.</p>
-    {/if}
-</div>
+<section>
+	<h1>
+		<span class="welcome">
+			<picture>
+				<source srcset={welcome} type="image/webp" />
+				<img src={"lib/images/svelte-welcome.png"}  alt="Welcome" />
+			</picture>
+		</span>
+
+		to your new<br />SvelteKit app
+
+		<p>Current URL: {$page.path}</p>
+
+		<p>Current URL: {url}</p>
+
+		<!-- <img src="https://chwtgvxmvxswmkpttqoz.supabase.co/storage/v1/object/sign/images/476617091_1667970033814757_8381891033472949217_n-Photoroom.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJpbWFnZXMvNDc2NjE3MDkxXzE2Njc5NzAwMzM4MTQ3NTdfODM4MTg5MTAzMzQ3Mjk0OTIxN19uLVBob3Rvcm9vbS5wbmciLCJpYXQiOjE3NDI2NDE5NzgsImV4cCI6MTc0MzI0Njc3OH0.qFAv1qeeuX3IM4asObAxMKQGy-gzF3V27BCCTPpitec"   /> -->
+
+		
+		
+		
+	</h1>
+
+	<h2>
+		try editing <strong>src/routes/+page.svelte</strong>
+	</h2>
+
+	<Counter />
+</section>
 
 <style>
-    .container {
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 2rem;
-        text-align: center;
-    }
+	section {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		flex: 0.6;
+	}
 
-    .login-box {
-        background: white;
-        padding: 2rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
+	h1 {
+		width: 100%;
+	}
 
-    .input-group {
-        display: flex;
-        gap: 1rem;
-        margin: 1rem 0;
-        justify-content: center;
-    }
+	.welcome {
+		display: block;
+		position: relative;
+		width: 100%;
+		height: 0;
+		padding: 0 0 calc(100% * 495 / 2048) 0;
+	}
 
-    input {
-        padding: 0.5rem;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-size: 1rem;
-    }
-
-    button {
-        padding: 0.5rem 1rem;
-        background: var(--color-theme-1);
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    button:hover {
-        background: var(--color-theme-2);
-    }
-
-    .error {
-        color: red;
-        margin-top: 1rem;
-    }
+	.welcome img {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		top: 0;
+		display: block;
+	}
 </style>
