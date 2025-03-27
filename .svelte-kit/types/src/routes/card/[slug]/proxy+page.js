@@ -1,8 +1,9 @@
+// @ts-nocheck
 import { error } from '@sveltejs/kit';
 
 export const prerender = false;
 
-/** @type {import('./$types').PageLoad} */
+/** @param {Parameters<import('./$types').PageLoad>[0]} event */
 export function load({ params }) {
     return {
         cardId: params.slug

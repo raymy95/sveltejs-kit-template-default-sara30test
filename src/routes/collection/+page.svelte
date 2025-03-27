@@ -9,20 +9,17 @@
     let unlockedCards = new Set();
     let selectedCard = null;
     let password = '';
-    let modalError = ''; // Separate error state for modal
-    let pageError = ''; // Separate error state for the main page
+    let modalError = '';
+    let pageError = '';
     let showUnlockModal = false;
     let loading = true;
 
-    // Default locked card image
     const lockedCardImage = "https://picsum.photos/400/300?blur=10";
 
     onMount(async () => {
         try {
-            // Initialize auth store
             auth.initialize();
 
-            // Load all cards
             const { data: allCards, error: cardsError } = await supabase
                 .from('cards')
                 .select('*');
@@ -33,7 +30,6 @@
                 cards = allCards;
             }
 
-            // Load user's unlocked cards if user is authenticated
             if ($auth.userId) {
                 const { data: userCards, error: userCardsError } = await supabase
                     .from('user_cards')
@@ -65,6 +61,10 @@
         showUnlockModal = true;
     }
 
+    function viewCard(cardId) {
+        goto(`/card/${cardId}?token=${$page.url.searchParams.get('token')}`);
+    }
+
     async function tryUnlock() {
         if (!$auth.userId) {
             modalError = 'Please log in first';
@@ -72,14 +72,12 @@
         }
 
         try {
-            // Check password first
             if (selectedCard.unlock_password !== password) {
                 modalError = 'Incorrect password';
-                password = ''; // Clear the password input
-                return; // Don't close modal, just return
+                password = '';
+                return;
             }
 
-            // First check if the card is already unlocked
             const { data: existingCards, error: checkError } = await supabase
                 .from('user_cards')
                 .select('id')
@@ -94,7 +92,6 @@
                 return;
             }
 
-            // Insert the new card
             const { error: unlockError } = await supabase
                 .from('user_cards')
                 .insert({
@@ -105,8 +102,11 @@
             if (unlockError) throw unlockError;
 
             unlockedCards.add(selectedCard.id);
-            unlockedCards = unlockedCards; // trigger reactivity
-            showUnlockModal = false; // Only close modal on successful unlock
+            unlockedCards = unlockedCards;
+            showUnlockModal = false;
+            
+            // Navigate to the card detail view
+            viewCard(selectedCard.id);
         } catch (e) {
             console.error('Unlock error:', e);
             modalError = 'Failed to unlock card';
@@ -137,7 +137,7 @@
         <div class="cards-grid">
             {#each cards as card}
                 <div class="card {unlockedCards.has(card.id) ? 'unlocked' : 'locked'}"
-                     on:click={() => !unlockedCards.has(card.id) && openUnlockModal(card)}>
+                     on:click={() => unlockedCards.has(card.id) ? viewCard(card.id) : openUnlockModal(card)}>
                     <img src={unlockedCards.has(card.id) ? card.image_url : lockedCardImage} 
                          alt={unlockedCards.has(card.id) ? card.name : 'Locked card'} />
                     <div class="card-info">
