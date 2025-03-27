@@ -3,41 +3,26 @@
     import '../app.css';
     import { auth } from '$lib/stores/auth';
     import { onMount } from 'svelte';
-    import { goto } from '$app/navigation';
-    import { page } from '$app/stores';
 
     /** @type {{children: import('svelte').Snippet}} */
     let { children } = $props();
 
-    // Initialize auth state based on URL token
     onMount(() => {
-        const token = new URLSearchParams(window.location.search).get('token');
-        auth.initialize(token);
-    });
-
-    // Subscribe to auth state and handle unauthorized access
-    let isAuthenticated = $derived($auth);
-    
-    $effect(() => {
-        if (!isAuthenticated) {
-            document.body.innerHTML = '<div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif;"><h1>Unauthorized Access</h1></div>';
-        }
+        auth.initialize();
     });
 </script>
 
 <div class="app">
-    {#if isAuthenticated}
-        <Header />
-        <main>
-            {@render children()}
-        </main>
+    <Header />
+    <main>
+        {@render children()}
+    </main>
 
-        <footer>
-            <p>
-                visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to learn about SvelteKit
-            </p>
-        </footer>
-    {/if}
+    <footer>
+        <p>
+            visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to learn about SvelteKit
+        </p>
+    </footer>
 </div>
 
 <style>

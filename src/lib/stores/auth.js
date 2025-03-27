@@ -2,30 +2,27 @@ import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
 const createAuthStore = () => {
-    const { subscribe, set } = writable(false);
+    const { subscribe, set } = writable({ isAuthenticated: false, username: null });
 
     return {
         subscribe,
-        validateToken: (token) => {
-            const isValid = token === "remyremy"; // Using the same token as before
-            if (isValid && browser) {
-                localStorage.setItem('auth', 'true');
-                set(true);
+        login: async (username) => {
+            if (browser) {
+                localStorage.setItem('username', username);
+                set({ isAuthenticated: true, username });
             }
-            return isValid;
         },
         logout: () => {
             if (browser) {
-                localStorage.removeItem('auth');
-                set(false);
+                localStorage.removeItem('username');
+                set({ isAuthenticated: false, username: null });
             }
         },
-        initialize: (token) => {
+        initialize: () => {
             if (browser) {
-                const isAuthenticated = token === "remyremy";
-                set(isAuthenticated);
-                if (isAuthenticated) {
-                    localStorage.setItem('auth', 'true');
+                const username = localStorage.getItem('username');
+                if (username) {
+                    set({ isAuthenticated: true, username });
                 }
             }
         }
