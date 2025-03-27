@@ -61,36 +61,19 @@
         showUnlockModal = true;
     }
 
-    async function viewCard(cardId) {
+    function viewCard(cardId) {
         if (!$auth.userId) {
             pageError = 'Please log in first';
             return;
         }
 
-        try {
-            // Check if the card is unlocked before navigating
-            const { data: userCard, error: checkError } = await supabase
-                .from('user_cards')
-                .select('id')
-                .eq('user_id', $auth.userId)
-                .eq('card_id', cardId)
-                .single();
-
-            if (checkError && checkError.code !== 'PGRST116') {
-                throw checkError;
-            }
-
-            if (!userCard) {
-                pageError = 'You need to unlock this card first';
-                return;
-            }
-
-            // If we get here, the card is unlocked, so navigate to it
-            goto(`/card/${cardId}?token=${$page.url.searchParams.get('token')}`);
-        } catch (e) {
-            console.error('Error checking card access:', e);
-            pageError = 'Failed to check card access';
+        if (!unlockedCards.has(cardId)) {
+            pageError = 'You need to unlock this card first';
+            return;
         }
+
+        const token = $page.url.searchParams.get('token');
+        goto(`/card/${cardId}?token=${token}`);
     }
 
     async function tryUnlock() {
@@ -134,7 +117,7 @@
             showUnlockModal = false;
             
             // Navigate to the card detail view
-            await viewCard(selectedCard.id);
+            viewCard(selectedCard.id);
         } catch (e) {
             console.error('Unlock error:', e);
             modalError = 'Failed to unlock card';
