@@ -50,17 +50,18 @@
                 .eq('card_id', data.cardId)
                 .single();
 
-            if (userCardError) {
-                if (userCardError.code === 'PGRST116') {
-                    // Card not unlocked - redirect to collection
-                    goto(`/collection?token=${$page.url.searchParams.get('token')}`);
-                    return;
-                }
+            if (userCardError && userCardError.code !== 'PGRST116') {
                 throw userCardError;
             }
 
+            if (!userCard) {
+                // Card not unlocked - redirect to collection
+                goto(`/collection?token=${$page.url.searchParams.get('token')}`);
+                return;
+            }
+
             // Check if user has already answered correctly and get wrong answers count
-            alreadyAnsweredCorrectly = userCard.answered_correctly;
+            alreadyAnsweredCorrectly = userCard.answered_correctly || false;
             wrongAnswers = userCard.wrong_answers || 0;
 
             // Set up answers if the card has a question and hasn't been answered correctly
@@ -96,13 +97,13 @@
             }
 
             // Call the function to update the score
-            const response = await supabase.rpc('update_card_score', {
+            const { error: updateError } = await supabase.rpc('update_card_score', {
                 user_id_param: $auth.userId,
                 card_id_param: data.cardId,
                 is_correct: isCorrect
             });
 
-            if (response.error) throw response.error;
+            if (updateError) throw updateError;
             
             if (isCorrect) {
                 alreadyAnsweredCorrectly = true;
@@ -128,6 +129,8 @@
     $effect(() => {
         if (initialized && $auth.isAuthenticated && $auth.userId && data.cardId) {
             loadCard();
+        } else if (initialized && !$auth.isAuthenticated) {
+            goto(`/?token=${$page.url.searchParams.get('token')}`);
         }
     });
 </script>
