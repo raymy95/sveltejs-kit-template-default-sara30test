@@ -96,13 +96,13 @@
             }
 
             // Call the function to update the score
-            const { error: updateError } = await supabase.rpc('update_card_score', {
+            const response = await supabase.rpc('update_card_score', {
                 user_id_param: $auth.userId,
                 card_id_param: data.cardId,
                 is_correct: isCorrect
             });
 
-            if (updateError) throw updateError;
+            if (response.error) throw response.error;
             
             if (isCorrect) {
                 alreadyAnsweredCorrectly = true;
@@ -180,9 +180,11 @@
                             <button 
                                 class="answer-button"
                                 class:selected={selectedAnswer === answer}
+                                class:correct={showResult && answer.isCorrect}
+                                class:incorrect={showResult && selectedAnswer === answer && !answer.isCorrect}
                                 class:updating={updatingDatabase}
-                                on:click={() => !updatingDatabase && checkAnswer(answer)}
-                                disabled={updatingDatabase}
+                                on:click={() => !showResult && !updatingDatabase && checkAnswer(answer)}
+                                disabled={showResult || updatingDatabase}
                             >
                                 {answer.text}
                                 {#if updatingDatabase && selectedAnswer === answer}
