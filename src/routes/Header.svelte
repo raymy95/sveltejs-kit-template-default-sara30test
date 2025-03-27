@@ -3,9 +3,19 @@
     import logo from '$lib/images/svelte-logo.svg';
     import github from '$lib/images/github.svg';
     import { goto } from '$app/navigation';
+    import { auth } from '$lib/stores/auth';
+    
+    $effect(() => {
+        auth.initialize();
+    });
 
     function handleNavigation(path) {
         goto(`${path}?token=${$page.url.searchParams.get('token')}`);
+    }
+
+    function handleLogout() {
+        auth.logout();
+        handleNavigation('/');
     }
 </script>
 
@@ -33,6 +43,14 @@
             <li aria-current={$page.url.pathname === '/score' ? 'page' : undefined}>
                 <button on:click={() => handleNavigation('/score')}>Classement</button>
             </li>
+            {#if $auth.username}
+                <li class="username">
+                    <span>Welcome, {$auth.username}!</span>
+                </li>
+                <li>
+                    <button class="logout-button" on:click={handleLogout}>Logout</button>
+                </li>
+            {/if}
         </ul>
         <svg viewBox="0 0 2 3" aria-hidden="true">
             <path d="M0,0 L0,3 C0.5,3 0.5,3 1,2 L2,0 Z" />
@@ -136,5 +154,21 @@
 
     button:hover {
         color: var(--color-theme-1);
+    }
+
+    .username {
+        display: flex;
+        align-items: center;
+        padding: 0 1rem;
+        color: var(--color-theme-1);
+        font-weight: 700;
+    }
+
+    .logout-button {
+        color: var(--color-theme-1);
+    }
+
+    .logout-button:hover {
+        color: #ff0000;
     }
 </style>
