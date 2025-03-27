@@ -12,6 +12,16 @@ const config = {
 		}),
 		paths: {
 			base: ''
+		},
+		prerender: {
+			handleHttpError: ({ path, referrer, message }) => {
+				// Ignore all 404s
+				if (message.includes('Not found')) {
+					return;
+				}
+				// Otherwise fail the build
+				throw new Error(message);
+			}
 		}
 	}
 };

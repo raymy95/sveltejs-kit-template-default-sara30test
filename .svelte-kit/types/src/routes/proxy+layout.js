@@ -1,8 +1,8 @@
 // @ts-nocheck
-import { redirect } from '@sveltejs/kit';
-import { isValidToken } from '$lib/token';
-
+// This ensures client-side routing works properly
 export const ssr = false;
+
+// Don't prerender any pages since they all depend on dynamic data
 export const prerender = false;
 
 /** @param {Parameters<import('./$types').LayoutLoad>[0]} event */
@@ -14,8 +14,12 @@ export function load({ url }) {
         return {};
     }
 
-    if (!token || !isValidToken(token)) {
-        throw redirect(303, '/error');
+    // Redirect to error page if no token
+    if (!token) {
+        return {
+            error: 'No token provided',
+            redirect: '/error'
+        };
     }
 
     return {
