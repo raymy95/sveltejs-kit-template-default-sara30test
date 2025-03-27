@@ -9,7 +9,8 @@
     let unlockedCards = new Set();
     let selectedCard = null;
     let password = '';
-    let error = '';
+    let modalError = ''; // Separate error state for modal
+    let pageError = ''; // Separate error state for the main page
     let showUnlockModal = false;
     let loading = true;
 
@@ -47,7 +48,7 @@
             }
         } catch (e) {
             console.error('Error loading cards:', e);
-            error = 'Failed to load cards';
+            pageError = 'Failed to load cards';
         } finally {
             loading = false;
         }
@@ -55,25 +56,27 @@
 
     function openUnlockModal(card) {
         if (!$auth.isAuthenticated) {
-            error = 'Please log in first';
+            pageError = 'Please log in first';
             return;
         }
         selectedCard = card;
         password = '';
-        error = '';
+        modalError = '';
         showUnlockModal = true;
     }
 
     async function tryUnlock() {
         if (!$auth.userId) {
-            error = 'Please log in first';
+            modalError = 'Please log in first';
             return;
         }
 
         try {
+            // Check password first
             if (selectedCard.unlock_password !== password) {
-                error = 'Incorrect password';
-                return;
+                modalError = 'Incorrect password';
+                password = ''; // Clear the password input
+                return; // Don't close modal, just return
             }
 
             // First check if the card is already unlocked
@@ -87,7 +90,7 @@
             if (checkError) throw checkError;
 
             if (existingCards && existingCards.length > 0) {
-                error = 'You already have this card!';
+                modalError = 'You already have this card!';
                 return;
             }
 
@@ -103,10 +106,10 @@
 
             unlockedCards.add(selectedCard.id);
             unlockedCards = unlockedCards; // trigger reactivity
-            showUnlockModal = false;
+            showUnlockModal = false; // Only close modal on successful unlock
         } catch (e) {
             console.error('Unlock error:', e);
-            error = 'Failed to unlock card';
+            modalError = 'Failed to unlock card';
         }
     }
 </script>
@@ -128,8 +131,8 @@
         </div>
     {:else if loading}
         <p>Loading cards...</p>
-    {:else if error}
-        <p class="error">{error}</p>
+    {:else if pageError}
+        <p class="error">{pageError}</p>
     {:else}
         <div class="cards-grid">
             {#each cards as card}
@@ -163,8 +166,8 @@
                     placeholder="Enter password"
                     on:keydown={(e) => e.key === 'Enter' && tryUnlock()}
                 />
-                {#if error}
-                    <p class="error">{error}</p>
+                {#if modalError}
+                    <p class="error">{modalError}</p>
                 {/if}
                 <div class="modal-buttons">
                     <button on:click={tryUnlock}>Unlock</button>
