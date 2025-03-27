@@ -5,17 +5,24 @@
     import { goto } from '$app/navigation';
     import { auth } from '$lib/stores/auth';
     
+    let menuOpen = $state(false);
+    
     $effect(() => {
         auth.initialize();
     });
 
     function handleNavigation(path) {
         goto(`${path}?token=${$page.url.searchParams.get('token')}`);
+        menuOpen = false;
     }
 
     function handleLogout() {
         auth.logout();
         handleNavigation('/');
+    }
+
+    function toggleMenu() {
+        menuOpen = !menuOpen;
     }
 </script>
 
@@ -26,8 +33,16 @@
         </a>
     </div>
 
-    <nav>
-        <svg viewBox="0 0 2 3" aria-hidden="true">
+    <button class="menu-button" on:click={toggleMenu} aria-label="Toggle menu">
+        <div class="hamburger" class:open={menuOpen}>
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    </button>
+
+    <nav class:open={menuOpen}>
+        <svg viewBox="0 0 2 3" aria-hidden="true" class="nav-arrow">
             <path d="M0,0 L1,2 C1.5,3 1.5,3 2,3 L2,0 Z" />
         </svg>
         <ul>
@@ -52,7 +67,7 @@
                 </li>
             {/if}
         </ul>
-        <svg viewBox="0 0 2 3" aria-hidden="true">
+        <svg viewBox="0 0 2 3" aria-hidden="true" class="nav-arrow">
             <path d="M0,0 L0,3 C0.5,3 0.5,3 1,2 L2,0 Z" />
         </svg>
     </nav>
@@ -68,11 +83,17 @@
     header {
         display: flex;
         justify-content: space-between;
+        align-items: center;
+        padding: 0 1rem;
+        position: relative;
     }
 
     .corner {
         width: 3em;
         height: 3em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .corner a {
@@ -93,9 +114,10 @@
         display: flex;
         justify-content: center;
         --background: rgba(255, 255, 255, 0.7);
+        position: relative;
     }
 
-    svg {
+    .nav-arrow {
         width: 2em;
         height: 3em;
         display: block;
@@ -170,5 +192,107 @@
 
     .logout-button:hover {
         color: #ff0000;
+    }
+
+    .menu-button {
+        display: none;
+        padding: 1rem;
+        background: none;
+        border: none;
+        cursor: pointer;
+        z-index: 100;
+    }
+
+    .hamburger {
+        width: 24px;
+        height: 20px;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .hamburger span {
+        display: block;
+        width: 100%;
+        height: 2px;
+        background-color: var(--color-text);
+        transition: all 0.3s ease-in-out;
+    }
+
+    .hamburger.open span:nth-child(1) {
+        transform: translateY(9px) rotate(45deg);
+    }
+
+    .hamburger.open span:nth-child(2) {
+        opacity: 0;
+    }
+
+    .hamburger.open span:nth-child(3) {
+        transform: translateY(-9px) rotate(-45deg);
+    }
+
+    @media (max-width: 768px) {
+        .menu-button {
+            display: block;
+        }
+
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 90;
+            padding: 4rem 1rem 1rem;
+        }
+
+        nav.open {
+            transform: translateX(0);
+        }
+
+        .nav-arrow {
+            display: none;
+        }
+
+        ul {
+            flex-direction: column;
+            height: auto;
+            background: none;
+            gap: 1rem;
+        }
+
+        li {
+            height: auto;
+            width: 100%;
+        }
+
+        button {
+            width: 100%;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        li[aria-current='page']::before {
+            display: none;
+        }
+
+        .username {
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .corner:last-child {
+            display: none;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .corner:first-child {
+            display: none;
+        }
     }
 </style>
