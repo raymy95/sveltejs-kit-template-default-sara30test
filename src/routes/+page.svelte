@@ -1,5 +1,7 @@
 <script>
-    import { auth } from '$lib/stores/auth';
+    import { page } from '$app/stores';
+    import { goto } from '$app/navigation';
+    import { supabase } from '$lib/supabase';
     
     let username = '';
     let error = '';
@@ -11,9 +13,41 @@
         }
         
         try {
-            await auth.login(username);
-            error = '';
+            // Check if user exists
+            let { data: existingUser, error: selectError } = await supabase
+                .from('users')
+                .select('id, username')
+                .eq('username', username)
+                .limit(1);
+
+            if (selectError) {
+                throw selectError;
+            }
+
+            let userId;
+
+            if (!existingUser || existingUser.length === 0) {
+                // Create new user
+                const { data: newUser, error: insertError } = await supabase
+                    .from('users')
+                    .insert([{ username }])
+                    .select()
+                    .single();
+
+                if (insertError) throw insertError;
+                userId = newUser.id;
+            } else {
+                userId = existingUser[0].id;
+            }
+
+            // Store user info in localStorage
+            localStorage.setItem('username', username);
+            localStorage.setItem('userId', userId);
+
+            // Redirect to collection page with token
+            goto(`/collection?token=${$page.url.searchParams.get('token')}`);
         } catch (e) {
+            console.error('Login error:', e);
             error = 'Login failed';
         }
     }
@@ -25,26 +59,21 @@
 </svelte:head>
 
 <div class="container">
-    {#if !$auth.isAuthenticated}
-        <div class="login-box">
-            <h1>Welcome to Card Collection</h1>
-            <div class="input-group">
-                <input
-                    type="text"
-                    bind:value={username}
-                    placeholder="Enter your username"
-                    on:keydown={(e) => e.key === 'Enter' && handleLogin()}
-                />
-                <button on:click={handleLogin}>Start Playing</button>
-            </div>
-            {#if error}
-                <p class="error">{error}</p>
-            {/if}
+    <div class="login-box">
+        <h1>Welcome to Card Collection</h1>
+        <div class="input-group">
+            <input
+                type="text"
+                bind:value={username}
+                placeholder="Enter your username"
+                on:keydown={(e) => e.key === 'Enter' && handleLogin()}
+            />
+            <button on:click={handleLogin}>Start Playing</button>
         </div>
-    {:else}
-        <h1>Welcome back, {$auth.username}!</h1>
-        <p>Visit the collection page to view and unlock your cards.</p>
-    {/if}
+        {#if error}
+            <p class="error">{error}</p>
+        {/if}
+    </div>
 </div>
 
 <style>

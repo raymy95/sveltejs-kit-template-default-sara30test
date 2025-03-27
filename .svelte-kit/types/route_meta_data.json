@@ -26,6 +26,10 @@
 		"src/routes/collection/+page.js",
 		"src/routes/+layout.js"
 	],
+	"/error": [
+		"src/routes/error/+page.js",
+		"src/routes/+layout.js"
+	],
 	"/login": [
 		"src/routes/+layout.js"
 	],

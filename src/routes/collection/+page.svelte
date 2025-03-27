@@ -1,5 +1,5 @@
 <script>
-    import { auth } from '$lib/stores/auth';
+    import { page } from '$app/stores';
     import { onMount } from 'svelte';
     import { supabase } from '$lib/supabase';
     import { goto } from '$app/navigation';
@@ -16,11 +16,6 @@
     const lockedCardImage = "https://picsum.photos/400/300?blur=10";
 
     onMount(async () => {
-        if (!$auth.isAuthenticated || !$auth.userId) {
-            goto('/');
-            return;
-        }
-
         try {
             // Load all cards
             const { data: allCards, error: cardsError } = await supabase
@@ -33,12 +28,15 @@
                 cards = allCards;
             }
 
-            // Load user's unlocked cards
-            if ($auth.userId) {
+            // Load user's unlocked cards if username exists in localStorage
+            const username = localStorage.getItem('username');
+            const userId = localStorage.getItem('userId');
+            
+            if (userId) {
                 const { data: userCards, error: userCardsError } = await supabase
                     .from('user_cards')
                     .select('card_id')
-                    .eq('user_id', $auth.userId);
+                    .eq('user_id', userId);
                 
                 if (userCardsError) throw userCardsError;
                 
@@ -62,7 +60,8 @@
     }
 
     async function tryUnlock() {
-        if (!$auth.userId) {
+        const userId = localStorage.getItem('userId');
+        if (!userId) {
             error = 'Please log in first';
             return;
         }
@@ -76,7 +75,7 @@
             const { error: unlockError } = await supabase
                 .from('user_cards')
                 .insert([{
-                    user_id: $auth.userId,
+                    user_id: userId,
                     card_id: selectedCard.id
                 }]);
 
@@ -91,6 +90,11 @@
         }
     }
 </script>
+
+<svelte:head>
+    <title>Card Collection</title>
+    <meta name="description" content="Your card collection" />
+</svelte:head>
 
 <div class="container">
     <h1>Your Card Collection</h1>

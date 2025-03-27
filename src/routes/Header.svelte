@@ -1,11 +1,11 @@
 <script>
-    import { page } from '$app/state';
-    import { auth } from '$lib/stores/auth';
+    import { page } from '$app/stores';
     import logo from '$lib/images/svelte-logo.svg';
     import github from '$lib/images/github.svg';
+    import { goto } from '$app/navigation';
 
-    function handleLogout() {
-        auth.logout();
+    function handleNavigation(path) {
+        goto(`${path}?token=${$page.url.searchParams.get('token')}`);
     }
 </script>
 
@@ -21,20 +21,17 @@
             <path d="M0,0 L1,2 C1.5,3 1.5,3 2,3 L2,0 Z" />
         </svg>
         <ul>
-            <li aria-current={page.url.pathname === '/' ? 'page' : undefined}>
-                <a href="/">Home</a>
+            <li aria-current={$page.url.pathname === '/' ? 'page' : undefined}>
+                <button on:click={() => handleNavigation('/')}>Home</button>
             </li>
-            <li aria-current={page.url.pathname === '/about' ? 'page' : undefined}>
-                <a href="/about">About</a>
+            <li aria-current={$page.url.pathname === '/about' ? 'page' : undefined}>
+                <button on:click={() => handleNavigation('/about')}>About</button>
             </li>
-            <li aria-current={page.url.pathname === '/collection' ? 'page' : undefined}>
-                <a href="/collection">Collection</a>
+            <li aria-current={$page.url.pathname === '/collection' ? 'page' : undefined}>
+                <button on:click={() => handleNavigation('/collection')}>Collection</button>
             </li>
-            <li aria-current={page.url.pathname === '/score' ? 'page' : undefined}>
-                <a href="/score">Classement</a>
-            </li>
-            <li>
-                <button class="logout-button" on:click={handleLogout}>Logout</button>
+            <li aria-current={$page.url.pathname === '/score' ? 'page' : undefined}>
+                <button on:click={() => handleNavigation('/score')}>Classement</button>
             </li>
         </ul>
         <svg viewBox="0 0 2 3" aria-hidden="true">
@@ -120,7 +117,7 @@
         border-top: var(--size) solid var(--color-theme-1);
     }
 
-    nav a {
+    button {
         display: flex;
         height: 100%;
         align-items: center;
@@ -132,26 +129,12 @@
         letter-spacing: 0.1em;
         text-decoration: none;
         transition: color 0.2s linear;
-    }
-
-    .logout-button {
-        background: none;
         border: none;
-        color: var(--color-text);
-        font-weight: 700;
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
+        background: none;
         cursor: pointer;
-        padding: 0 0.5rem;
-        height: 100%;
     }
 
-    .logout-button:hover {
-        color: var(--color-theme-1);
-    }
-
-    a:hover {
+    button:hover {
         color: var(--color-theme-1);
     }
 </style>

@@ -1,9 +1,10 @@
+// @ts-nocheck
 import { redirect } from '@sveltejs/kit';
 import { isValidToken } from '$lib/token';
 
 export const prerender = false;
 
-/** @type {import('./$types').PageLoad} */
+/** @param {Parameters<import('./$types').PageLoad>[0]} event */
 export function load({ url }) {
     const token = url.searchParams.get('token');
     

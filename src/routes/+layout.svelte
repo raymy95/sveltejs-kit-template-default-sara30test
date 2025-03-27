@@ -1,19 +1,17 @@
 <script>
     import Header from './Header.svelte';
     import '../app.css';
-    import { auth } from '$lib/stores/auth';
-    import { onMount } from 'svelte';
+    import { page } from '$app/stores';
 
     /** @type {{children: import('svelte').Snippet}} */
     let { children } = $props();
-
-    onMount(() => {
-        auth.initialize();
-    });
 </script>
 
 <div class="app">
-    <Header />
+    {#if $page.url.pathname !== '/error'}
+        <Header />
+    {/if}
+    
     <main>
         {@render children()}
     </main>
