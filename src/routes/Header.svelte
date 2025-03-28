@@ -50,10 +50,10 @@
                 <button on:click={() => handleNavigation('/')}>Accueil</button>
             </li>
             <li aria-current={$page.url.pathname === '/about' ? 'page' : undefined}>
-                <button on:click={() => handleNavigation('/about')}>À propos</button>
+                <button on:click={() => handleNavigation('/about')}>Règles</button>
             </li>
             <li aria-current={$page.url.pathname === '/collection' ? 'page' : undefined}>
-                <button on:click={() => handleNavigation('/collection')}>Collection</button>
+                <button on:click={() => handleNavigation('/collection')}>Cartes</button>
             </li>
             <li aria-current={$page.url.pathname === '/score' ? 'page' : undefined}>
                 <button on:click={() => handleNavigation('/score')}>Classement</button>

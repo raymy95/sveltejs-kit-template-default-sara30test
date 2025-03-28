@@ -126,11 +126,11 @@
 
 <svelte:head>
     <title>Collection de Cartes</title>
-    <meta name="description" content="Votre collection de cartes" />
+    <meta name="description" content="Ta collection de cartes" />
 </svelte:head>
 
 <div class="container">
-    <h1>Votre Collection de Cartes</h1>
+    <h1>Ta Collection de Cartes</h1>
     
     {#if !$auth.isAuthenticated}
         <div class="login-prompt">

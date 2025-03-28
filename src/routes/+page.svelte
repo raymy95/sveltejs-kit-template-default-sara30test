@@ -33,11 +33,11 @@
 
 <div class="container">
     <div class="login-box">
-        <h1>Bienvenue dans Collection de Cartes</h1>
+        <h1>Bienvenue à l'anniversaire de Sara 🎉</h1>
         {#if $auth.username}
             <div class="welcome-back">
-                <h2>Bon retour, {$auth.username}!</h2>
-                <p>Prêt à continuer votre collection ?</p>
+                <h2>Connecté en tant que {$auth.username}</h2>
+                <p>Prêt à collectionner des cartes ?</p>
                 <button on:click={() => goto(`/collection?token=${$page.url.searchParams.get('token')}`)}>
                     Voir ma Collection
                 </button>
