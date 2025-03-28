@@ -4,16 +4,19 @@
     import { supabase } from '$lib/supabase';
     import { auth } from '$lib/stores/auth';
     import { onMount } from 'svelte';
-    import { Html5QrcodeScanner } from 'html5-qrcode';
+    import { Html5Qrcode } from 'html5-qrcode';
     
     let cards = [];
     let unlockedCards = new Set();
     let selectedCard = null;
+    let password = '';
     let modalError = '';
     let pageError = '';
     let showUnlockModal = false;
     let loading = true;
     let qrScanner = null;
+    let showQRScanner = false;
+    let cameraError = '';
 
     const lockedCardImage = "https://picsum.photos/400/300?blur=10";
 
@@ -51,30 +54,59 @@
         }
     });
 
-    function startQRScanner(card) {
+    function openUnlockModal(card) {
         if (!$auth.isAuthenticated) {
             pageError = 'Veuillez vous connecter d\'abord';
             return;
         }
         selectedCard = card;
+        password = '';
         modalError = '';
+        cameraError = '';
         showUnlockModal = true;
+        showQRScanner = false;
+    }
 
-        // Initialize QR Scanner
-        qrScanner = new Html5QrcodeScanner(
-            "qr-reader",
-            { fps: 10, qrbox: { width: 250, height: 250 } },
-            /* verbose= */ false
-        );
+    async function startQRScanner() {
+        try {
+            showQRScanner = true;
+            cameraError = '';
+            modalError = '';
 
-        qrScanner.render(onScanSuccess, onScanFailure);
+            // Check if camera permissions are available
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const cameras = devices.filter(device => device.kind === 'videoinput');
+            
+            if (cameras.length === 0) {
+                throw new Error('Aucune caméra détectée sur votre appareil');
+            }
+
+            // Create QR scanner instance
+            qrScanner = new Html5Qrcode('qr-reader');
+
+            // Start scanning with the first available camera
+            await qrScanner.start(
+                { facingMode: "environment" },
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                },
+                onScanSuccess,
+                onScanFailure
+            );
+        } catch (error) {
+            console.error('Camera error:', error);
+            cameraError = error.message || 'Impossible d\'accéder à la caméra. Veuillez vérifier les permissions.';
+            showQRScanner = false;
+        }
     }
 
     async function onScanSuccess(decodedText) {
         try {
             // Stop the scanner
             if (qrScanner) {
-                qrScanner.clear();
+                await qrScanner.stop();
+                qrScanner = null;
             }
 
             if (!selectedCard || selectedCard.unlock_password !== decodedText) {
@@ -82,7 +114,34 @@
                 return;
             }
 
-            // Check if card is already unlocked
+            await unlockCard();
+        } catch (e) {
+            console.error('QR scan error:', e);
+            modalError = 'Échec du scan du QR Code';
+        }
+    }
+
+    function onScanFailure(error) {
+        // Handle scan failure silently to avoid flooding the console
+    }
+
+    async function tryUnlock() {
+        if (!selectedCard || !password) {
+            modalError = 'Veuillez entrer un mot de passe';
+            return;
+        }
+
+        if (selectedCard.unlock_password !== password) {
+            modalError = 'Mot de passe incorrect';
+            password = '';
+            return;
+        }
+
+        await unlockCard();
+    }
+
+    async function unlockCard() {
+        try {
             const { data: existingCards, error: checkError } = await supabase
                 .from('user_cards')
                 .select('id')
@@ -97,7 +156,6 @@
                 return;
             }
 
-            // Unlock the card
             const { error: unlockError } = await supabase
                 .from('user_cards')
                 .insert({
@@ -109,7 +167,7 @@
 
             unlockedCards.add(selectedCard.id);
             unlockedCards = unlockedCards;
-            showUnlockModal = false;
+            closeModal();
             
             viewCard(selectedCard.id);
         } catch (e) {
@@ -118,17 +176,20 @@
         }
     }
 
-    function onScanFailure(error) {
-        // Handle scan failure silently
-        console.warn(`QR scan error: ${error}`);
-    }
-
-    function closeScanner() {
+    async function closeModal() {
         if (qrScanner) {
-            qrScanner.clear();
+            try {
+                await qrScanner.stop();
+            } catch (e) {
+                console.error('Error stopping QR scanner:', e);
+            }
+            qrScanner = null;
         }
         showUnlockModal = false;
+        showQRScanner = false;
         modalError = '';
+        cameraError = '';
+        password = '';
         selectedCard = null;
     }
 
@@ -168,16 +229,10 @@
     {:else if pageError}
         <p class="error">{pageError}</p>
     {:else}
-        <div class="scan-button-container">
-            <button class="scan-button" on:click={() => startQRScanner(null)}>
-                Scanner un QR Code pour débloquer une carte
-            </button>
-        </div>
-
         <div class="cards-grid">
             {#each cards as card}
                 <div class="card {unlockedCards.has(card.id) ? 'unlocked' : 'locked'}"
-                     on:click={() => unlockedCards.has(card.id) ? viewCard(card.id) : startQRScanner(card)}>
+                     on:click={() => unlockedCards.has(card.id) ? viewCard(card.id) : openUnlockModal(card)}>
                     <img src={unlockedCards.has(card.id) ? card.image_url : lockedCardImage} 
                          alt={unlockedCards.has(card.id) ? card.name : 'Carte verrouillée'} />
                     <div class="card-info">
@@ -195,20 +250,50 @@
     {#if showUnlockModal}
         <div class="modal-overlay">
             <div class="modal">
-                <h2>Scanner un QR Code</h2>
-                <p>Placez le QR Code devant votre caméra pour débloquer une carte</p>
+                <h2>Débloquer la Carte</h2>
+                
                 {#if selectedCard}
                     <div class="debug-info">
-                        <h3>Debug - Mot de passe de la carte :</h3>
                         <p><strong>{selectedCard.name}:</strong> {selectedCard.unlock_password}</p>
                     </div>
                 {/if}
-                <div id="qr-reader"></div>
+
+                {#if showQRScanner}
+                    {#if cameraError}
+                        <div class="error-box">
+                            <p>{cameraError}</p>
+                            <button class="secondary" on:click={() => showQRScanner = false}>
+                                Utiliser le mot de passe à la place
+                            </button>
+                        </div>
+                    {:else}
+                        <p>Placez le QR Code devant votre caméra pour débloquer la carte</p>
+                        <div id="qr-reader"></div>
+                        <button class="secondary" on:click={() => showQRScanner = false}>
+                            Utiliser le mot de passe à la place
+                        </button>
+                    {/if}
+                {:else}
+                    <div class="password-input">
+                        <input
+                            type="password"
+                            bind:value={password}
+                            placeholder="Entrez le mot de passe"
+                            on:keydown={(e) => e.key === 'Enter' && tryUnlock()}
+                        />
+                        <button on:click={tryUnlock}>Débloquer</button>
+                    </div>
+                    <button class="secondary" on:click={startQRScanner}>
+                        Scanner un QR Code à la place
+                    </button>
+                {/if}
+
                 {#if modalError}
                     <p class="error">{modalError}</p>
                 {/if}
+
                 <div class="modal-buttons">
-                    <button class="cancel" on:click={closeScanner}>Fermer</button>
+                    <button class="cancel" on:click={closeModal}>Fermer</button>
                 </div>
             </div>
         </div>
@@ -228,26 +313,6 @@
         background: white;
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    .scan-button-container {
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-
-    .scan-button {
-        padding: 1rem 2rem;
-        font-size: 1.1rem;
-        background: var(--color-theme-1);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: background-color 0.2s;
-    }
-
-    .scan-button:hover {
-        background: var(--color-theme-2);
     }
 
     .cards-grid {
@@ -323,14 +388,23 @@
         text-align: left;
     }
 
-    .debug-info h3 {
-        margin-top: 0;
-        color: #666;
+    .debug-info p {
+        margin: 0;
+        font-family: monospace;
     }
 
-    .debug-info p {
-        margin: 0.5rem 0;
-        font-family: monospace;
+    .password-input {
+        display: flex;
+        gap: 0.5rem;
+        margin: 1rem 0;
+    }
+
+    .password-input input {
+        flex: 1;
+        padding: 0.5rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 1rem;
     }
 
     #qr-reader {
@@ -338,9 +412,17 @@
         margin: 1rem 0;
     }
 
-    #qr-reader img {
-        width: 100%;
-        height: auto;
+    #qr-reader video {
+        width: 100% !important;
+        border-radius: 8px;
+    }
+
+    .error-box {
+        background: #ffebee;
+        padding: 1rem;
+        margin: 1rem 0;
+        border-radius: 4px;
+        color: #c62828;
     }
 
     .modal-buttons {
@@ -357,10 +439,28 @@
         cursor: pointer;
         background: var(--color-theme-1);
         color: white;
+        transition: background-color 0.2s;
+    }
+
+    button:hover {
+        background: var(--color-theme-2);
+    }
+
+    button.secondary {
+        background: #666;
+        margin: 1rem 0;
+    }
+
+    button.secondary:hover {
+        background: #888;
     }
 
     button.cancel {
         background: #ccc;
+    }
+
+    button.cancel:hover {
+        background: #999;
     }
 
     .error {
@@ -376,6 +476,10 @@
         .modal {
             width: 95%;
             padding: 1rem;
+        }
+
+        .password-input {
+            flex-direction: column;
         }
     }
 </style>
