@@ -5,10 +5,16 @@ import { isValidToken } from '$lib/token';
 export const prerender = false;
 
 /** @param {Parameters<import('./$types').PageLoad>[0]} event */
-export function load({ url }) {
+export async function load({ url }) {
     const token = url.searchParams.get('token');
     
-    if (!token || !isValidToken(token)) {
+    // Redirect to error page if token is missing or invalid
+    if (!token || token === 'null') {
+        throw redirect(303, '/error');
+    }
+
+    const isValid = await isValidToken(token);
+    if (!isValid) {
         throw redirect(303, '/error');
     }
 

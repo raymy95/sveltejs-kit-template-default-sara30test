@@ -6,7 +6,7 @@ export const ssr = false;
 export const prerender = false;
 
 /** @param {Parameters<import('./$types').LayoutLoad>[0]} event */
-export function load({ url }) {
+export async function load({ url }) {
     const token = url.searchParams.get('token');
     
     // Allow access to error page without token
@@ -14,8 +14,8 @@ export function load({ url }) {
         return {};
     }
 
-    // Redirect to error page if no token
-    if (!token) {
+    // Redirect to error page if no token or token is 'null'
+    if (!token || token === 'null') {
         return {
             error: 'No token provided',
             redirect: '/error'

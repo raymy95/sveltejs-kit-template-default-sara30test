@@ -17,6 +17,9 @@
 	"/api/cards/unlock": [
 		"src/routes/api/cards/unlock/+server.js"
 	],
+	"/api/token": [
+		"src/routes/api/token/+server.js"
+	],
 	"/card/[slug]": [
 		"src/routes/card/[slug]/+page.js",
 		"src/routes/+layout.js"
