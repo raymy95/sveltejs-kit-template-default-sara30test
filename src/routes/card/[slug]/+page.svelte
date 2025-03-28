@@ -11,14 +11,13 @@
     let card = $state(null);
     let loading = $state(true);
     let error = $state(null);
-    let answers = [];
-    let selectedAnswer = null;
-    let showResult = false;
-    let isCorrect = false;
+    let answers = $state([]);
+    let wrongAnswers = $state(0);
+    let selectedAnswers = $state(new Set());
+    let correctAnswerRevealed = $state(false);
     let alreadyAnsweredCorrectly = $state(false);
     let initialized = false;
     let updatingDatabase = $state(false);
-    let wrongAnswers = $state(0);
 
     async function loadCard() {
         if (!initialized || !$auth.isAuthenticated || !$auth.userId || !data.cardId) {
@@ -62,10 +61,10 @@
 
             if (cardData.question && cardData.correct_answer && !alreadyAnsweredCorrectly) {
                 answers = [
-                    { text: cardData.correct_answer, isCorrect: true },
-                    { text: cardData.wrong_answer_1, isCorrect: false },
-                    { text: cardData.wrong_answer_2, isCorrect: false },
-                    { text: cardData.wrong_answer_3, isCorrect: false }
+                    { id:1, text: cardData.correct_answer, isCorrect: true, isChecked:false },
+                    { id:2, text: cardData.wrong_answer_1, isCorrect: false, isChecked:false },
+                    { id:3, text: cardData.wrong_answer_2, isCorrect: false, isChecked:false },
+                    { id:4, text: cardData.wrong_answer_3, isCorrect: false, isChecked:false }
                 ].sort(() => Math.random() - 0.5);
             }
 
@@ -79,28 +78,36 @@
     }
 
     async function checkAnswer(answer) {
-        if (!$auth.userId || !data.cardId || updatingDatabase) return;
+        if (!$auth.userId || !data.cardId || updatingDatabase || correctAnswerRevealed) return;
 
         try {
-            updatingDatabase = true;
-            selectedAnswer = answer;
-            isCorrect = answer.isCorrect;
-            showResult = true;
+            if (answer.isCorrect) {
+                correctAnswerRevealed = true;
+                updatingDatabase = true;
 
-            if (!isCorrect) {
-                wrongAnswers++;
-            }
+                const { error: updateError } = await supabase.rpc('update_card_score', {
+                    user_id_param: $auth.userId,
+                    card_id_param: data.cardId,
+                    is_correct: true
+                });
 
-            const { error: updateError } = await supabase.rpc('update_card_score', {
-                user_id_param: $auth.userId,
-                card_id_param: data.cardId,
-                is_correct: isCorrect
-            });
-
-            if (updateError) throw updateError;
-            
-            if (isCorrect) {
+                if (updateError) throw updateError;
                 alreadyAnsweredCorrectly = true;
+            } else {
+                selectedAnswers.add(answer.id);
+                selectedAnswers = selectedAnswers; // Trigger reactivity
+              answer.isChecked = true;
+              console.log(selectedAnswers);
+               console.log(selectedAnswers.has(answer.id));
+                wrongAnswers++;
+
+                const { error: updateError } = await supabase.rpc('update_card_score', {
+                    user_id_param: $auth.userId,
+                    card_id_param: data.cardId,
+                    is_correct: false
+                });
+
+                if (updateError) throw updateError;
             }
         } catch (e) {
             console.error('Error updating score:', e);
@@ -175,30 +182,29 @@
                         {#each answers as answer}
                             <button 
                                 class="answer-button"
-                                class:selected={selectedAnswer === answer}
-                                class:correct={showResult && answer.isCorrect}
-                                class:incorrect={showResult && selectedAnswer === answer && !answer.isCorrect}
-                                class:updating={updatingDatabase}
-                                on:click={() => !showResult && !updatingDatabase && checkAnswer(answer)}
-                                disabled={showResult || updatingDatabase}
+                                class:correct={correctAnswerRevealed && answer.isCorrect}
+                                class:incorrect={answer.isChecked}
+                                class:disabled={updatingDatabase || correctAnswerRevealed}
+                                on:click={() => checkAnswer(answer)}
+                                disabled={updatingDatabase || correctAnswerRevealed}
                             >
                                 {answer.text}
-                                {#if updatingDatabase && selectedAnswer === answer}
+                                {#if updatingDatabase && answer.isCorrect}
                                     <span class="loading-indicator">...</span>
                                 {/if}
                             </button>
                         {/each}
                     </div>
 
-                    {#if showResult}
-                        <div class="result" class:correct={isCorrect} class:incorrect={!isCorrect}>
-                            <p>{isCorrect ? `Correct ! +${5 - Math.min(wrongAnswers, 4)} points` : 'Incorrect ! Essayez encore !'}</p>
+                    {#if correctAnswerRevealed}
+                        <div class="result correct">
+                            <p>Correct ! +{5 - Math.min(wrongAnswers, 4)} points</p>
                         </div>
                     {/if}
 
                     <div class="wrong-answers">
                         <p>Tentatives incorrectes : {wrongAnswers}</p>
-                        {#if wrongAnswers > 0}
+                        {#if wrongAnswers > 0 && !correctAnswerRevealed}
                             <p class="points-info">La prochaine bonne réponse vous donnera {5 - Math.min(wrongAnswers, 4)} points</p>
                         {/if}
                     </div>
@@ -307,28 +313,24 @@
         position: relative;
     }
 
-    .answer-button:hover:not(:disabled) {
+    .answer-button:not(.disabled):hover {
         background: var(--color-theme-2);
         color: white;
     }
 
-    .answer-button.selected {
-        border-color: var(--color-theme-1);
-    }
-
     .answer-button.correct {
-        background: #4CAF50;
-        color: white;
-        border-color: #4CAF50;
+        background-color: #4CAF50 !important;
+        border-color: #4CAF50 !important;
+        color: white !important;
     }
 
     .answer-button.incorrect {
-        background: #f44336;
-        color: white;
-        border-color: #f44336;
+        background-color: #f44336 !important;
+        border-color: #f44336 !important;
+        color: white !important;
     }
 
-    .answer-button.updating {
+    .answer-button.disabled {
         opacity: 0.7;
         cursor: not-allowed;
     }
@@ -357,11 +359,6 @@
         color: #2E7D32;
     }
 
-    .result.incorrect {
-        background: #FFEBEE;
-        color: #C62828;
-    }
-
     .wrong-answers {
         margin-top: 2rem;
         text-align: center;
@@ -378,5 +375,11 @@
 
     .error {
         color: #f44336;
+    }
+
+    @media (max-width: 768px) {
+        .container {
+            padding: 1rem;
+        }
     }
 </style>
