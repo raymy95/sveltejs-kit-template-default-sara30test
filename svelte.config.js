@@ -8,7 +8,8 @@ const config = {
 			assets: 'build',
 			fallback: 'index.html',
 			precompress: false,
-			strict: true
+			strict: true,
+			split:true
 		}),
 		paths: {
 			base: '',
