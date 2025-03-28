@@ -13,6 +13,7 @@ export default defineConfig({
 			output: {
 				manualChunks: undefined
 			}
-		}
+		},
+		target: 'esnext'
 	}
 });
