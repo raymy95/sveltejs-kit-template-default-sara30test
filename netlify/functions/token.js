@@ -1,10 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+// import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client
-const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.VITE_SUPABASE_ANON_KEY
-);
+// // Initialize Supabase client
+// const supabase = createClient(
+//     process.env.VITE_SUPABASE_URL,
+//     process.env.VITE_SUPABASE_ANON_KEY
+// );
 
 export async function handler(event) {
     // Add CORS headers
