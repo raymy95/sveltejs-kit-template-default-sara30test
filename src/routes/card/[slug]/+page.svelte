@@ -29,7 +29,6 @@
             loading = true;
             error = null;
 
-            // Load card details first
             const { data: cardData, error: cardError } = await supabase
                 .from('cards')
                 .select('*')
@@ -38,11 +37,10 @@
 
             if (cardError) throw cardError;
             if (!cardData) {
-                error = 'Card not found';
+                error = 'Carte non trouvée';
                 return;
             }
 
-            // Then check if user has unlocked this card
             const { data: userCard, error: userCardError } = await supabase
                 .from('user_cards')
                 .select('*')
@@ -55,16 +53,13 @@
             }
 
             if (!userCard) {
-                // Card not unlocked - redirect to collection
                 goto(`/collection?token=${$page.url.searchParams.get('token')}`);
                 return;
             }
 
-            // Check if user has already answered correctly and get wrong answers count
             alreadyAnsweredCorrectly = userCard.answered_correctly || false;
             wrongAnswers = userCard.wrong_answers || 0;
 
-            // Set up answers if the card has a question and hasn't been answered correctly
             if (cardData.question && cardData.correct_answer && !alreadyAnsweredCorrectly) {
                 answers = [
                     { text: cardData.correct_answer, isCorrect: true },
@@ -77,7 +72,7 @@
             card = cardData;
         } catch (e) {
             console.error('Error loading card:', e);
-            error = 'Failed to load card';
+            error = 'Échec du chargement de la carte';
         } finally {
             loading = false;
         }
@@ -96,7 +91,6 @@
                 wrongAnswers++;
             }
 
-            // Call the function to update the score
             const { error: updateError } = await supabase.rpc('update_card_score', {
                 user_id_param: $auth.userId,
                 card_id_param: data.cardId,
@@ -110,7 +104,7 @@
             }
         } catch (e) {
             console.error('Error updating score:', e);
-            error = 'Failed to update score';
+            error = 'Échec de la mise à jour du score';
         } finally {
             updatingDatabase = false;
         }
@@ -125,7 +119,6 @@
         initialized = true;
     });
 
-    // Watch for changes in initialization and auth state
     $effect(() => {
         if (initialized && $auth.isAuthenticated && $auth.userId && data.cardId) {
             loadCard();
@@ -136,26 +129,26 @@
 </script>
 
 <svelte:head>
-    <title>{card ? card.name : 'Card'} - Card Collection</title>
-    <meta name="description" content="Card detail view" />
+    <title>{card ? card.name : 'Carte'} - Collection de Cartes</title>
+    <meta name="description" content="Vue détaillée de la carte" />
 </svelte:head>
 
 <div class="container">
     {#if loading}
         <div class="loading">
-            <p>Loading card...</p>
+            <p>Chargement de la carte...</p>
         </div>
     {:else if error}
         <div class="error-container">
             <p class="error">{error}</p>
-            <button class="back-button" on:click={goBack}>← Back to Collection</button>
+            <button class="back-button" on:click={goBack}>← Retour à la Collection</button>
         </div>
     {:else if !initialized || !$auth.isAuthenticated}
         <div class="loading">
-            <p>Initializing...</p>
+            <p>Initialisation...</p>
         </div>
     {:else if card}
-        <button class="back-button" on:click={goBack}>← Back to Collection</button>
+        <button class="back-button" on:click={goBack}>← Retour à la Collection</button>
         
         <div class="card-detail">
             <img src={card.image_url} alt={card.name} />
@@ -168,14 +161,14 @@
 
         {#if card.question}
             <div class="question-section">
-                <h2>Question:</h2>
+                <h2>Question :</h2>
                 <p class="question">{card.question}</p>
 
                 {#if alreadyAnsweredCorrectly}
                     <div class="already-answered">
-                        <p>You've already answered this question correctly!</p>
-                        <p>The correct answer is: {card.correct_answer}</p>
-                        <p>It took you {wrongAnswers} wrong {wrongAnswers === 1 ? 'attempt' : 'attempts'} before getting it right.</p>
+                        <p>Vous avez déjà répondu correctement à cette question !</p>
+                        <p>La bonne réponse est : {card.correct_answer}</p>
+                        <p>Il vous a fallu {wrongAnswers} {wrongAnswers === 1 ? 'tentative incorrecte' : 'tentatives incorrectes'} avant de trouver la bonne réponse.</p>
                     </div>
                 {:else if answers.length > 0}
                     <div class="answers">
@@ -199,14 +192,14 @@
 
                     {#if showResult}
                         <div class="result" class:correct={isCorrect} class:incorrect={!isCorrect}>
-                            <p>{isCorrect ? `Correct! +${5 - Math.min(wrongAnswers, 4)} points` : 'Incorrect! Try again!'}</p>
+                            <p>{isCorrect ? `Correct ! +${5 - Math.min(wrongAnswers, 4)} points` : 'Incorrect ! Essayez encore !'}</p>
                         </div>
                     {/if}
 
                     <div class="wrong-answers">
-                        <p>Wrong attempts: {wrongAnswers}</p>
+                        <p>Tentatives incorrectes : {wrongAnswers}</p>
                         {#if wrongAnswers > 0}
-                            <p class="points-info">Next correct answer will give you {5 - Math.min(wrongAnswers, 4)} points</p>
+                            <p class="points-info">La prochaine bonne réponse vous donnera {5 - Math.min(wrongAnswers, 4)} points</p>
                         {/if}
                     </div>
                 {/if}

@@ -12,7 +12,7 @@
 
     async function handleLogin() {
         if (!username.trim()) {
-            error = 'Please enter a username';
+            error = 'Veuillez entrer un nom d\'utilisateur';
             return;
         }
         
@@ -21,25 +21,25 @@
             goto(`/collection?token=${$page.url.searchParams.get('token')}`);
         } catch (e) {
             console.error('Login error:', e);
-            error = 'Login failed';
+            error = 'Échec de la connexion';
         }
     }
 </script>
 
 <svelte:head>
-    <title>Card Collection Game</title>
-    <meta name="description" content="Card collection game" />
+    <title>Jeu de Collection de Cartes</title>
+    <meta name="description" content="Jeu de collection de cartes" />
 </svelte:head>
 
 <div class="container">
     <div class="login-box">
-        <h1>Welcome to Card Collection</h1>
+        <h1>Bienvenue dans Collection de Cartes</h1>
         {#if $auth.username}
             <div class="welcome-back">
-                <h2>Welcome back, {$auth.username}!</h2>
-                <p>Ready to continue your collection?</p>
+                <h2>Bon retour, {$auth.username}!</h2>
+                <p>Prêt à continuer votre collection ?</p>
                 <button on:click={() => goto(`/collection?token=${$page.url.searchParams.get('token')}`)}>
-                    Go to Collection
+                    Voir ma Collection
                 </button>
             </div>
         {:else}
@@ -47,10 +47,10 @@
                 <input
                     type="text"
                     bind:value={username}
-                    placeholder="Enter your username"
+                    placeholder="Entrez votre nom d'utilisateur"
                     on:keydown={(e) => e.key === 'Enter' && handleLogin()}
                 />
-                <button on:click={handleLogin}>Start Playing</button>
+                <button on:click={handleLogin}>Commencer à Jouer</button>
             </div>
             {#if error}
                 <p class="error">{error}</p>

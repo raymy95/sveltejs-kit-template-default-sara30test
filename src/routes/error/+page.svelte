@@ -3,13 +3,13 @@
 </script>
 
 <svelte:head>
-    <title>Access Denied</title>
+    <title>Accès Refusé</title>
 </svelte:head>
 
 <div class="error-container">
-    <h1>Access Denied</h1>
-    <p>You need a valid token to access this site.</p>
-    <p>Please add a valid token to the URL: <code>?token=xxx</code></p>
+    <h1>Accès Refusé</h1>
+    <p>Vous avez besoin d'un jeton valide pour accéder à ce site.</p>
+    <p>Veuillez ajouter un jeton valide à l'URL : <code>?token=xxx</code></p>
 </div>
 
 <style>

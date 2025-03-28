@@ -44,7 +44,7 @@
             }
         } catch (e) {
             console.error('Error loading cards:', e);
-            pageError = 'Failed to load cards';
+            pageError = 'Échec du chargement des cartes';
         } finally {
             loading = false;
         }
@@ -52,7 +52,7 @@
 
     function openUnlockModal(card) {
         if (!$auth.isAuthenticated) {
-            pageError = 'Please log in first';
+            pageError = 'Veuillez vous connecter d\'abord';
             return;
         }
         selectedCard = card;
@@ -63,12 +63,12 @@
 
     function viewCard(cardId) {
         if (!$auth.userId) {
-            pageError = 'Please log in first';
+            pageError = 'Veuillez vous connecter d\'abord';
             return;
         }
 
         if (!unlockedCards.has(cardId)) {
-            pageError = 'You need to unlock this card first';
+            pageError = 'Vous devez d\'abord débloquer cette carte';
             return;
         }
 
@@ -78,13 +78,13 @@
 
     async function tryUnlock() {
         if (!$auth.userId) {
-            modalError = 'Please log in first';
+            modalError = 'Veuillez vous connecter d\'abord';
             return;
         }
 
         try {
             if (selectedCard.unlock_password !== password) {
-                modalError = 'Incorrect password';
+                modalError = 'Mot de passe incorrect';
                 password = '';
                 return;
             }
@@ -99,7 +99,7 @@
             if (checkError) throw checkError;
 
             if (existingCards && existingCards.length > 0) {
-                modalError = 'You already have this card!';
+                modalError = 'Vous avez déjà cette carte !';
                 return;
             }
 
@@ -116,32 +116,31 @@
             unlockedCards = unlockedCards;
             showUnlockModal = false;
             
-            // Navigate to the card detail view
             viewCard(selectedCard.id);
         } catch (e) {
             console.error('Unlock error:', e);
-            modalError = 'Failed to unlock card';
+            modalError = 'Échec du déverrouillage de la carte';
         }
     }
 </script>
 
 <svelte:head>
-    <title>Card Collection</title>
-    <meta name="description" content="Your card collection" />
+    <title>Collection de Cartes</title>
+    <meta name="description" content="Votre collection de cartes" />
 </svelte:head>
 
 <div class="container">
-    <h1>Your Card Collection</h1>
+    <h1>Votre Collection de Cartes</h1>
     
     {#if !$auth.isAuthenticated}
         <div class="login-prompt">
-            <p>Please log in to view and unlock cards.</p>
+            <p>Veuillez vous connecter pour voir et débloquer des cartes.</p>
             <button on:click={() => goto(`/?token=${$page.url.searchParams.get('token')}`)}>
-                Go to Login
+                Aller à la Connexion
             </button>
         </div>
     {:else if loading}
-        <p>Loading cards...</p>
+        <p>Chargement des cartes...</p>
     {:else if pageError}
         <p class="error">{pageError}</p>
     {:else}
@@ -150,7 +149,7 @@
                 <div class="card {unlockedCards.has(card.id) ? 'unlocked' : 'locked'}"
                      on:click={() => unlockedCards.has(card.id) ? viewCard(card.id) : openUnlockModal(card)}>
                     <img src={unlockedCards.has(card.id) ? card.image_url : lockedCardImage} 
-                         alt={unlockedCards.has(card.id) ? card.name : 'Locked card'} />
+                         alt={unlockedCards.has(card.id) ? card.name : 'Carte verrouillée'} />
                     <div class="card-info">
                         <h3>{unlockedCards.has(card.id) ? card.name : '???'}</h3>
                         {#if unlockedCards.has(card.id)}
@@ -166,23 +165,23 @@
     {#if showUnlockModal}
         <div class="modal-overlay">
             <div class="modal">
-                <h2>Unlock Card</h2>
-                <p>Enter the password to unlock this card:</p>
+                <h2>Débloquer la Carte</h2>
+                <p>Entrez le mot de passe pour débloquer cette carte :</p>
                 <div class="debug-info">
-                    <p><strong>Debug - Card Password:</strong> {selectedCard.unlock_password}</p>
+                    <p><strong>Debug - Mot de passe de la carte :</strong> {selectedCard.unlock_password}</p>
                 </div>
                 <input
                     type="password"
                     bind:value={password}
-                    placeholder="Enter password"
+                    placeholder="Entrez le mot de passe"
                     on:keydown={(e) => e.key === 'Enter' && tryUnlock()}
                 />
                 {#if modalError}
                     <p class="error">{modalError}</p>
                 {/if}
                 <div class="modal-buttons">
-                    <button on:click={tryUnlock}>Unlock</button>
-                    <button class="cancel" on:click={() => showUnlockModal = false}>Cancel</button>
+                    <button on:click={tryUnlock}>Débloquer</button>
+                    <button class="cancel" on:click={() => showUnlockModal = false}>Annuler</button>
                 </div>
             </div>
         </div>

@@ -33,7 +33,7 @@
         </a>
     </div>
 
-    <button class="menu-button" on:click={toggleMenu} aria-label="Toggle menu">
+    <button class="menu-button" on:click={toggleMenu} aria-label="Ouvrir le menu">
         <div class="hamburger" class:open={menuOpen}>
             <span></span>
             <span></span>
@@ -47,10 +47,10 @@
         </svg>
         <ul>
             <li aria-current={$page.url.pathname === '/' ? 'page' : undefined}>
-                <button on:click={() => handleNavigation('/')}>Home</button>
+                <button on:click={() => handleNavigation('/')}>Accueil</button>
             </li>
             <li aria-current={$page.url.pathname === '/about' ? 'page' : undefined}>
-                <button on:click={() => handleNavigation('/about')}>About</button>
+                <button on:click={() => handleNavigation('/about')}>À propos</button>
             </li>
             <li aria-current={$page.url.pathname === '/collection' ? 'page' : undefined}>
                 <button on:click={() => handleNavigation('/collection')}>Collection</button>
@@ -60,10 +60,10 @@
             </li>
             {#if $auth.username}
                 <li class="username">
-                    <span>Welcome, {$auth.username}!</span>
+                    <span>Bienvenue, {$auth.username}!</span>
                 </li>
                 <li>
-                    <button class="logout-button" on:click={handleLogout}>Logout</button>
+                    <button class="logout-button" on:click={handleLogout}>Déconnexion</button>
                 </li>
             {/if}
         </ul>

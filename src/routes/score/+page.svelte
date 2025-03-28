@@ -9,7 +9,6 @@
 
     async function loadRankings() {
         try {
-            // Get user rankings by total score
             const { data, error: rankingsError } = await supabase
                 .from('users')
                 .select(`
@@ -20,7 +19,6 @@
 
             if (rankingsError) throw rankingsError;
 
-            // Calculate total score for each user and sort
             rankings = data
                 .map(user => ({
                     id: user.id,
@@ -28,7 +26,7 @@
                     totalScore: user.user_cards.reduce((sum, card) => sum + (card.score || 0), 0),
                     cardsUnlocked: user.user_cards.length
                 }))
-                .sort((a, b) => b.totalScore - a.totalScore) // Sort by score descending
+                .sort((a, b) => b.totalScore - a.totalScore)
                 .map((user, index) => ({
                     ...user,
                     rank: index + 1
@@ -36,7 +34,7 @@
 
         } catch (e) {
             console.error('Error loading rankings:', e);
-            error = 'Failed to load rankings';
+            error = 'Échec du chargement du classement';
         } finally {
             loading = false;
         }
@@ -49,8 +47,8 @@
 </script>
 
 <svelte:head>
-    <title>Classement - Card Collection</title>
-    <meta name="description" content="User rankings" />
+    <title>Classement - Collection de Cartes</title>
+    <meta name="description" content="Classement des joueurs" />
 </svelte:head>
 
 <div class="container">
@@ -58,7 +56,7 @@
 
     {#if loading}
         <div class="loading">
-            <p>Loading rankings...</p>
+            <p>Chargement du classement...</p>
         </div>
     {:else if error}
         <div class="error">
@@ -66,17 +64,17 @@
         </div>
     {:else if rankings.length === 0}
         <div class="no-data">
-            <p>No rankings available yet.</p>
+            <p>Aucun classement disponible pour le moment.</p>
         </div>
     {:else}
         <div class="rankings">
             <table>
                 <thead>
                     <tr>
-                        <th>Rank</th>
-                        <th>Username</th>
+                        <th>Rang</th>
+                        <th>Nom d'utilisateur</th>
                         <th>Score</th>
-                        <th>Cards Unlocked</th>
+                        <th>Cartes Débloquées</th>
                     </tr>
                 </thead>
                 <tbody>
