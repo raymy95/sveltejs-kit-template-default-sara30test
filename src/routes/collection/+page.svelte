@@ -4,15 +4,16 @@
     import { supabase } from '$lib/supabase';
     import { auth } from '$lib/stores/auth';
     import { onMount } from 'svelte';
+    import { Html5QrcodeScanner } from 'html5-qrcode';
     
     let cards = [];
     let unlockedCards = new Set();
     let selectedCard = null;
-    let password = '';
     let modalError = '';
     let pageError = '';
     let showUnlockModal = false;
     let loading = true;
+    let qrScanner = null;
 
     const lockedCardImage = "https://picsum.photos/400/300?blur=10";
 
@@ -50,45 +51,38 @@
         }
     });
 
-    function openUnlockModal(card) {
+    function startQRScanner(card) {
         if (!$auth.isAuthenticated) {
             pageError = 'Veuillez vous connecter d\'abord';
             return;
         }
         selectedCard = card;
-        password = '';
         modalError = '';
         showUnlockModal = true;
+
+        // Initialize QR Scanner
+        qrScanner = new Html5QrcodeScanner(
+            "qr-reader",
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            /* verbose= */ false
+        );
+
+        qrScanner.render(onScanSuccess, onScanFailure);
     }
 
-    function viewCard(cardId) {
-        if (!$auth.userId) {
-            pageError = 'Veuillez vous connecter d\'abord';
-            return;
-        }
-
-        if (!unlockedCards.has(cardId)) {
-            pageError = 'Vous devez d\'abord débloquer cette carte';
-            return;
-        }
-
-        const token = $page.url.searchParams.get('token');
-        goto(`/card/${cardId}?token=${token}`);
-    }
-
-    async function tryUnlock() {
-        if (!$auth.userId) {
-            modalError = 'Veuillez vous connecter d\'abord';
-            return;
-        }
-
+    async function onScanSuccess(decodedText) {
         try {
-            if (selectedCard.unlock_password !== password) {
-                modalError = 'Mot de passe incorrect';
-                password = '';
+            // Stop the scanner
+            if (qrScanner) {
+                qrScanner.clear();
+            }
+
+            if (!selectedCard || selectedCard.unlock_password !== decodedText) {
+                modalError = 'QR Code invalide';
                 return;
             }
 
+            // Check if card is already unlocked
             const { data: existingCards, error: checkError } = await supabase
                 .from('user_cards')
                 .select('id')
@@ -103,6 +97,7 @@
                 return;
             }
 
+            // Unlock the card
             const { error: unlockError } = await supabase
                 .from('user_cards')
                 .insert({
@@ -121,6 +116,35 @@
             console.error('Unlock error:', e);
             modalError = 'Échec du déverrouillage de la carte';
         }
+    }
+
+    function onScanFailure(error) {
+        // Handle scan failure silently
+        console.warn(`QR scan error: ${error}`);
+    }
+
+    function closeScanner() {
+        if (qrScanner) {
+            qrScanner.clear();
+        }
+        showUnlockModal = false;
+        modalError = '';
+        selectedCard = null;
+    }
+
+    function viewCard(cardId) {
+        if (!$auth.userId) {
+            pageError = 'Veuillez vous connecter d\'abord';
+            return;
+        }
+
+        if (!unlockedCards.has(cardId)) {
+            pageError = 'Vous devez d\'abord débloquer cette carte';
+            return;
+        }
+
+        const token = $page.url.searchParams.get('token');
+        goto(`/card/${cardId}?token=${token}`);
     }
 </script>
 
@@ -144,10 +168,16 @@
     {:else if pageError}
         <p class="error">{pageError}</p>
     {:else}
+        <div class="scan-button-container">
+            <button class="scan-button" on:click={() => startQRScanner(null)}>
+                Scanner un QR Code pour débloquer une carte
+            </button>
+        </div>
+
         <div class="cards-grid">
             {#each cards as card}
                 <div class="card {unlockedCards.has(card.id) ? 'unlocked' : 'locked'}"
-                     on:click={() => unlockedCards.has(card.id) ? viewCard(card.id) : openUnlockModal(card)}>
+                     on:click={() => unlockedCards.has(card.id) ? viewCard(card.id) : startQRScanner(card)}>
                     <img src={unlockedCards.has(card.id) ? card.image_url : lockedCardImage} 
                          alt={unlockedCards.has(card.id) ? card.name : 'Carte verrouillée'} />
                     <div class="card-info">
@@ -165,23 +195,20 @@
     {#if showUnlockModal}
         <div class="modal-overlay">
             <div class="modal">
-                <h2>Débloquer la Carte</h2>
-                <p>Entrez le mot de passe pour débloquer cette carte :</p>
-                <div class="debug-info">
-                    <p><strong>Debug - Mot de passe de la carte :</strong> {selectedCard.unlock_password}</p>
-                </div>
-                <input
-                    type="password"
-                    bind:value={password}
-                    placeholder="Entrez le mot de passe"
-                    on:keydown={(e) => e.key === 'Enter' && tryUnlock()}
-                />
+                <h2>Scanner un QR Code</h2>
+                <p>Placez le QR Code devant votre caméra pour débloquer une carte</p>
+                {#if selectedCard}
+                    <div class="debug-info">
+                        <h3>Debug - Mot de passe de la carte :</h3>
+                        <p><strong>{selectedCard.name}:</strong> {selectedCard.unlock_password}</p>
+                    </div>
+                {/if}
+                <div id="qr-reader"></div>
                 {#if modalError}
                     <p class="error">{modalError}</p>
                 {/if}
                 <div class="modal-buttons">
-                    <button on:click={tryUnlock}>Débloquer</button>
-                    <button class="cancel" on:click={() => showUnlockModal = false}>Annuler</button>
+                    <button class="cancel" on:click={closeScanner}>Fermer</button>
                 </div>
             </div>
         </div>
@@ -201,6 +228,26 @@
         background: white;
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .scan-button-container {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .scan-button {
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        background: var(--color-theme-1);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .scan-button:hover {
+        background: var(--color-theme-2);
     }
 
     .cards-grid {
@@ -256,6 +303,7 @@
         display: flex;
         justify-content: center;
         align-items: center;
+        z-index: 1000;
     }
 
     .modal {
@@ -263,29 +311,43 @@
         padding: 2rem;
         border-radius: 8px;
         width: 90%;
-        max-width: 400px;
+        max-width: 500px;
+        text-align: center;
     }
 
     .debug-info {
-        background: #f0f0f0;
-        padding: 0.5rem;
+        background: #f5f5f5;
+        padding: 1rem;
         margin: 1rem 0;
         border-radius: 4px;
+        text-align: left;
+    }
+
+    .debug-info h3 {
+        margin-top: 0;
+        color: #666;
+    }
+
+    .debug-info p {
+        margin: 0.5rem 0;
         font-family: monospace;
     }
 
-    .modal input {
+    #qr-reader {
         width: 100%;
-        padding: 0.5rem;
         margin: 1rem 0;
-        border: 1px solid #ccc;
-        border-radius: 4px;
+    }
+
+    #qr-reader img {
+        width: 100%;
+        height: auto;
     }
 
     .modal-buttons {
         display: flex;
         gap: 1rem;
-        justify-content: flex-end;
+        justify-content: center;
+        margin-top: 1rem;
     }
 
     button {
@@ -304,5 +366,16 @@
     .error {
         color: red;
         margin-top: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+        .container {
+            padding: 1rem;
+        }
+
+        .modal {
+            width: 95%;
+            padding: 1rem;
+        }
     }
 </style>
