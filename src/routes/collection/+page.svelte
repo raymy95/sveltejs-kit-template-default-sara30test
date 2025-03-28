@@ -3,16 +3,13 @@
     import { goto } from '$app/navigation';
     import { supabase } from '$lib/supabase';
     import { auth } from '$lib/stores/auth';
-    import { onMount } from 'svelte';
+    import { onMount, onDestroy } from 'svelte';
     import { Html5Qrcode } from 'html5-qrcode';
     
     let cards = [];
     let unlockedCards = new Set();
-    let selectedCard = null;
-    let password = '';
     let modalError = '';
     let pageError = '';
-    let showUnlockModal = false;
     let loading = true;
     let qrScanner = null;
     let showQRScanner = false;
@@ -54,129 +51,83 @@
         }
     });
 
-    function openUnlockModal(card) {
-        if (!$auth.isAuthenticated) {
-            pageError = 'Veuillez vous connecter d\'abord';
-            return;
-        }
-        selectedCard = card;
-        password = '';
-        modalError = '';
-        cameraError = '';
-        showUnlockModal = true;
-        showQRScanner = false;
-    }
-
     async function startQRScanner() {
         try {
             showQRScanner = true;
             cameraError = '';
             modalError = '';
 
-            // Check if camera permissions are available
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const cameras = devices.filter(device => device.kind === 'videoinput');
-            
-            if (cameras.length === 0) {
-                throw new Error('Aucune caméra détectée sur votre appareil');
-            }
+            // Request camera permissions
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            stream.getTracks().forEach(track => track.stop()); // Release camera immediately
 
             // Create QR scanner instance
-            qrScanner = new Html5Qrcode('qr-reader');
+            qrScanner = new Html5Qrcode("qr-reader");
 
-            // Start scanning with the first available camera
             await qrScanner.start(
                 { facingMode: "environment" },
                 {
                     fps: 10,
-                    qrbox: { width: 250, height: 250 },
+                    qrbox: { width: 250, height: 250 }
                 },
-                onScanSuccess,
-                onScanFailure
+                async (decodedText) => {
+                    try {
+                        // Find card with matching password
+                        const matchingCard = cards.find(card => card.unlock_password === decodedText);
+                        
+                        if (!matchingCard) {
+                            modalError = 'QR Code invalide';
+                            return;
+                        }
+
+                        // Stop scanner
+                        if (qrScanner) {
+                            await qrScanner.stop();
+                            qrScanner = null;
+                        }
+
+                        // Check if card is already unlocked
+                        if (unlockedCards.has(matchingCard.id)) {
+                            modalError = 'Vous avez déjà cette carte !';
+                            return;
+                        }
+
+                        // Unlock the card
+                        const { error: unlockError } = await supabase
+                            .from('user_cards')
+                            .insert({
+                                user_id: $auth.userId,
+                                card_id: matchingCard.id
+                            });
+
+                        if (unlockError) throw unlockError;
+
+                        // Update local state
+                        unlockedCards.add(matchingCard.id);
+                        unlockedCards = unlockedCards;
+
+                        // Close scanner and redirect
+                        showQRScanner = false;
+                        const token = $page.url.searchParams.get('token');
+                        goto(`/card/${matchingCard.id}?token=${token}`);
+
+                    } catch (e) {
+                        console.error('QR scan error:', e);
+                        modalError = 'Échec du scan du QR Code';
+                    }
+                },
+                (error) => {
+                    // Handle scan errors silently
+                }
             );
         } catch (error) {
             console.error('Camera error:', error);
-            cameraError = error.message || 'Impossible d\'accéder à la caméra. Veuillez vérifier les permissions.';
+            cameraError = 'Impossible d\'accéder à la caméra. Veuillez vérifier les permissions.';
             showQRScanner = false;
         }
     }
 
-    async function onScanSuccess(decodedText) {
-        try {
-            // Stop the scanner
-            if (qrScanner) {
-                await qrScanner.stop();
-                qrScanner = null;
-            }
-
-            if (!selectedCard || selectedCard.unlock_password !== decodedText) {
-                modalError = 'QR Code invalide';
-                return;
-            }
-
-            await unlockCard();
-        } catch (e) {
-            console.error('QR scan error:', e);
-            modalError = 'Échec du scan du QR Code';
-        }
-    }
-
-    function onScanFailure(error) {
-        // Handle scan failure silently to avoid flooding the console
-    }
-
-    async function tryUnlock() {
-        if (!selectedCard || !password) {
-            modalError = 'Veuillez entrer un mot de passe';
-            return;
-        }
-
-        if (selectedCard.unlock_password !== password) {
-            modalError = 'Mot de passe incorrect';
-            password = '';
-            return;
-        }
-
-        await unlockCard();
-    }
-
-    async function unlockCard() {
-        try {
-            const { data: existingCards, error: checkError } = await supabase
-                .from('user_cards')
-                .select('id')
-                .eq('user_id', $auth.userId)
-                .eq('card_id', selectedCard.id)
-                .limit(1);
-
-            if (checkError) throw checkError;
-
-            if (existingCards && existingCards.length > 0) {
-                modalError = 'Vous avez déjà cette carte !';
-                return;
-            }
-
-            const { error: unlockError } = await supabase
-                .from('user_cards')
-                .insert({
-                    user_id: $auth.userId,
-                    card_id: selectedCard.id
-                });
-
-            if (unlockError) throw unlockError;
-
-            unlockedCards.add(selectedCard.id);
-            unlockedCards = unlockedCards;
-            closeModal();
-            
-            viewCard(selectedCard.id);
-        } catch (e) {
-            console.error('Unlock error:', e);
-            modalError = 'Échec du déverrouillage de la carte';
-        }
-    }
-
-    async function closeModal() {
+    async function stopQRScanner() {
         if (qrScanner) {
             try {
                 await qrScanner.stop();
@@ -185,12 +136,7 @@
             }
             qrScanner = null;
         }
-        showUnlockModal = false;
         showQRScanner = false;
-        modalError = '';
-        cameraError = '';
-        password = '';
-        selectedCard = null;
     }
 
     function viewCard(cardId) {
@@ -207,6 +153,13 @@
         const token = $page.url.searchParams.get('token');
         goto(`/card/${cardId}?token=${token}`);
     }
+
+    // Cleanup on unmount
+    onDestroy(() => {
+        if (qrScanner) {
+            qrScanner.stop().catch(console.error);
+        }
+    });
 </script>
 
 <svelte:head>
@@ -229,10 +182,16 @@
     {:else if pageError}
         <p class="error">{pageError}</p>
     {:else}
+        <div class="scan-button-container">
+            <button class="scan-button" on:click={startQRScanner}>
+                Scanner un QR Code
+            </button>
+        </div>
+
         <div class="cards-grid">
             {#each cards as card}
                 <div class="card {unlockedCards.has(card.id) ? 'unlocked' : 'locked'}"
-                     on:click={() => unlockedCards.has(card.id) ? viewCard(card.id) : openUnlockModal(card)}>
+                     on:click={() => unlockedCards.has(card.id) && viewCard(card.id)}>
                     <img src={unlockedCards.has(card.id) ? card.image_url : lockedCardImage} 
                          alt={unlockedCards.has(card.id) ? card.name : 'Carte verrouillée'} />
                     <div class="card-info">
@@ -247,54 +206,25 @@
         </div>
     {/if}
 
-    {#if showUnlockModal}
+    {#if showQRScanner}
         <div class="modal-overlay">
             <div class="modal">
-                <h2>Débloquer la Carte</h2>
+                <h2>Scanner un QR Code</h2>
                 
-                {#if selectedCard}
-                    <div class="debug-info">
-                        <p><strong>{selectedCard.name}:</strong> {selectedCard.unlock_password}</p>
+                {#if cameraError}
+                    <div class="error-box">
+                        <p>{cameraError}</p>
                     </div>
-                {/if}
-
-                {#if showQRScanner}
-                    {#if cameraError}
-                        <div class="error-box">
-                            <p>{cameraError}</p>
-                            <button class="secondary" on:click={() => showQRScanner = false}>
-                                Utiliser le mot de passe à la place
-                            </button>
-                        </div>
-                    {:else}
-                        <p>Placez le QR Code devant votre caméra pour débloquer la carte</p>
-                        <div id="qr-reader"></div>
-                        <button class="secondary" on:click={() => showQRScanner = false}>
-                            Utiliser le mot de passe à la place
-                        </button>
-                    {/if}
                 {:else}
-                    <div class="password-input">
-                        <input
-                            type="password"
-                            bind:value={password}
-                            placeholder="Entrez le mot de passe"
-                            on:keydown={(e) => e.key === 'Enter' && tryUnlock()}
-                        />
-                        <button on:click={tryUnlock}>Débloquer</button>
-                    </div>
-                    <button class="secondary" on:click={startQRScanner}>
-                        Scanner un QR Code à la place
-                    </button>
+                    <p>Placez le QR Code devant votre caméra</p>
+                    <div id="qr-reader"></div>
                 {/if}
 
                 {#if modalError}
                     <p class="error">{modalError}</p>
                 {/if}
 
-                <div class="modal-buttons">
-                    <button class="cancel" on:click={closeModal}>Fermer</button>
-                </div>
+                <button class="cancel" on:click={stopQRScanner}>Fermer</button>
             </div>
         </div>
     {/if}
@@ -305,6 +235,26 @@
         max-width: 1200px;
         margin: 0 auto;
         padding: 2rem;
+    }
+
+    .scan-button-container {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .scan-button {
+        padding: 0.75rem 1.5rem;
+        font-size: 1.1rem;
+        background: var(--color-theme-1);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .scan-button:hover {
+        background: var(--color-theme-2);
     }
 
     .login-prompt {
@@ -328,15 +278,19 @@
         overflow: hidden;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         transition: transform 0.2s;
+    }
+
+    .card.unlocked {
         cursor: pointer;
     }
 
-    .card:hover {
+    .card.unlocked:hover {
         transform: translateY(-5px);
     }
 
     .card.locked {
         filter: grayscale(1);
+        cursor: not-allowed;
     }
 
     .card img {
@@ -380,33 +334,6 @@
         text-align: center;
     }
 
-    .debug-info {
-        background: #f5f5f5;
-        padding: 1rem;
-        margin: 1rem 0;
-        border-radius: 4px;
-        text-align: left;
-    }
-
-    .debug-info p {
-        margin: 0;
-        font-family: monospace;
-    }
-
-    .password-input {
-        display: flex;
-        gap: 0.5rem;
-        margin: 1rem 0;
-    }
-
-    .password-input input {
-        flex: 1;
-        padding: 0.5rem;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-size: 1rem;
-    }
-
     #qr-reader {
         width: 100%;
         margin: 1rem 0;
@@ -425,13 +352,6 @@
         color: #c62828;
     }
 
-    .modal-buttons {
-        display: flex;
-        gap: 1rem;
-        justify-content: center;
-        margin-top: 1rem;
-    }
-
     button {
         padding: 0.5rem 1rem;
         border: none;
@@ -446,17 +366,9 @@
         background: var(--color-theme-2);
     }
 
-    button.secondary {
-        background: #666;
-        margin: 1rem 0;
-    }
-
-    button.secondary:hover {
-        background: #888;
-    }
-
     button.cancel {
         background: #ccc;
+        margin-top: 1rem;
     }
 
     button.cancel:hover {
@@ -476,10 +388,6 @@
         .modal {
             width: 95%;
             padding: 1rem;
-        }
-
-        .password-input {
-            flex-direction: column;
         }
     }
 </style>
