@@ -10,6 +10,8 @@
     let unlockedCards = new Set();
     let answeredCards = new Map(); // Map to store answered status
     let cardScores = new Map(); // Map to store card scores
+    let cardUserCounts = new Map(); // Map to store user counts for each card
+    let totalUsers = 0; // Total number of users
     let modalError = '';
     let pageError = '';
     let loading = true;
@@ -34,6 +36,28 @@
             }
 
             if ($auth.isAdmin) {
+                // Get total users count
+                const { count: userCount, error: userCountError } = await supabase
+                    .from('users')
+                    .select('*', { count: 'exact', head: true });
+
+                if (userCountError) throw userCountError;
+                totalUsers = userCount || 0;
+
+                // Get user counts for each card
+                const { data: userCards, error: userCardsError } = await supabase
+                    .from('user_cards')
+                    .select('card_id');
+
+                if (userCardsError) throw userCardsError;
+
+                // Count users per card
+                const counts = new Map();
+                userCards?.forEach(uc => {
+                    counts.set(uc.card_id, (counts.get(uc.card_id) || 0) + 1);
+                });
+                cardUserCounts = counts;
+
                 // Admin sees all cards as unlocked
                 unlockedCards = new Set(cards.map(card => card.id));
                 // Admin sees all cards as answered correctly
@@ -226,6 +250,7 @@
                                     <p class="question">Q: {card.question}</p>
                                     <p class="answer">A: {card.correct_answer}</p>
                                 {/if}
+                                <p class="user-count">Débloquée par: {cardUserCounts.get(card.id) || 0}/{totalUsers} utilisateurs</p>
                             </div>
                         {/if}
                     </div>
@@ -378,6 +403,11 @@
 
     .answer {
         color: #4caf50;
+    }
+
+    .user-count {
+        color: #9c27b0;
+        font-weight: bold;
     }
 
     .modal-overlay {
