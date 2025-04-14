@@ -4,12 +4,55 @@
     import github from '$lib/images/github.svg';
     import { goto } from '$app/navigation';
     import { auth } from '$lib/stores/auth';
+    import { supabase } from '$lib/supabase';
+    import { onMount } from 'svelte';
+    import { writable } from 'svelte/store';
     
-    let menuOpen = $state(false);
-    
-    $effect(() => {
-        auth.initialize();
+    let menuOpen = false;
+    const stats = writable({ 
+        unlockedCards: 0, 
+        totalCards: 0,
+        answeredQuestions: 0,
+        totalQuestions: 0 
     });
+
+    onMount(() => {
+        auth.initialize();
+        if ($auth.isAuthenticated && $auth.userId) {
+            loadStats();
+        }
+    });
+
+    $: if ($auth.isAuthenticated && $auth.userId) {
+        loadStats();
+    }
+
+    async function loadStats() {
+        try {
+            const { data: cards, error: cardsError } = await supabase
+                .from('cards')
+                .select('id');
+
+            if (cardsError) throw cardsError;
+            const totalCards = cards?.length || 0;
+
+            const { data: userCards, error: userCardsError } = await supabase
+                .from('user_cards')
+                .select('answered_correctly')
+                .eq('user_id', $auth.userId);
+
+            if (userCardsError) throw userCardsError;
+
+            stats.set({
+                unlockedCards: userCards?.length || 0,
+                totalCards,
+                answeredQuestions: userCards?.filter(card => card.answered_correctly)?.length || 0,
+                totalQuestions: totalCards
+            });
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
+    }
 
     function handleNavigation(path) {
         goto(`${path}?token=${$page.url.searchParams.get('token')}`);
@@ -18,6 +61,12 @@
 
     function handleLogout() {
         auth.logout();
+        stats.set({
+            unlockedCards: 0,
+            totalCards: 0,
+            answeredQuestions: 0,
+            totalQuestions: 0
+        });
         handleNavigation('/');
     }
 
@@ -61,6 +110,10 @@
             {#if $auth.username}
                 <li class="username">
                     <span>Bienvenue, {$auth.username}!</span>
+                    <div class="stats">
+                        <span class="stat">Cartes: {$stats.unlockedCards}/{$stats.totalCards}</span>
+                        <span class="stat">Questions: {$stats.answeredQuestions}/{$stats.totalQuestions}</span>
+                    </div>
                 </li>
                 <li>
                     <button class="logout-button" on:click={handleLogout}>Déconnexion</button>
@@ -180,10 +233,23 @@
 
     .username {
         display: flex;
-        align-items: center;
+        flex-direction: column;
+        align-items: flex-start;
         padding: 0 1rem;
         color: var(--color-theme-1);
         font-weight: 700;
+    }
+
+    .stats {
+        display: flex;
+        flex-direction: column;
+        font-size: 0.7rem;
+        color: var(--color-text);
+        margin-top: 0.2rem;
+    }
+
+    .stat {
+        margin: 0.1rem 0;
     }
 
     .logout-button {
@@ -283,6 +349,7 @@
         .username {
             text-align: center;
             padding: 1rem;
+            align-items: center;
         }
 
         .corner:last-child {
