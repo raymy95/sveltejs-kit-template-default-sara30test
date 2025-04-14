@@ -11,7 +11,7 @@
 	</p>
 
 	<p>
-		🍷 Chaque mot de passe permet de débloquer une carte "Sara"
+		🍷 Chaque QRcode permet de débloquer une carte "Sara"
 	</p>
 
 	<p>
