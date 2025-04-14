@@ -7,7 +7,7 @@
 	<h1>Règles</h1>
 
 	<p>
-		🍺 trouver différents mot de passes cachés aux 4 coins de la maison
+		🍺 trouver différents QRcode cachés aux 4 coins de la maison
 	</p>
 
 	<p>

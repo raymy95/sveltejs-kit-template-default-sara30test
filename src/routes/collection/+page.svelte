@@ -9,6 +9,7 @@
     let cards = [];
     let unlockedCards = new Set();
     let answeredCards = new Map(); // Map to store answered status
+    let cardScores = new Map(); // Map to store card scores
     let modalError = '';
     let pageError = '';
     let loading = true;
@@ -37,17 +38,19 @@
                 unlockedCards = new Set(cards.map(card => card.id));
                 // Admin sees all cards as answered correctly
                 answeredCards = new Map(cards.map(card => [card.id, true]));
+                // Admin sees maximum score for all cards
+                cardScores = new Map(cards.map(card => [card.id, 5]));
             } else if ($auth.userId) {
                 const { data: userCards, error: userCardsError } = await supabase
                     .from('user_cards')
-                    .select('card_id, answered_correctly')
-                    .eq('user_id', $auth.userId);
+                    .select('card_id, answered_correctly, score, wrong_answers');
                 
                 if (userCardsError) throw userCardsError;
                 
                 if (userCards) {
                     unlockedCards = new Set(userCards.map(uc => uc.card_id));
                     answeredCards = new Map(userCards.map(uc => [uc.card_id, uc.answered_correctly]));
+                    cardScores = new Map(userCards.map(uc => [uc.card_id, uc.score]));
                 }
             }
         } catch (e) {
@@ -114,6 +117,8 @@
                         unlockedCards = unlockedCards;
                         answeredCards.set(matchingCard.id, false);
                         answeredCards = answeredCards;
+                        cardScores.set(matchingCard.id, 1); // Initial score for unlocking
+                        cardScores = cardScores;
 
                         // Close scanner and redirect
                         showQRScanner = false;
@@ -212,6 +217,11 @@
                         {#if unlockedCards.has(card.id) || $auth.isAdmin}
                             <p>{card.description}</p>
                             <span class="rarity">{card.rarity}</span>
+                            {#if answeredCards.get(card.id)}
+                                <div class="score-badge">
+                                    +{cardScores.get(card.id)} points
+                                </div>
+                            {/if}
                             {#if $auth.isAdmin}
                                 <div class="admin-info">
                                     <p class="password">Password: {card.unlock_password}</p>
@@ -301,6 +311,7 @@
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         transition: transform 0.2s;
         border: 3px solid transparent;
+        position: relative;
     }
 
     .card.unlocked {
@@ -332,6 +343,20 @@
 
     .card-info {
         padding: 1rem;
+        position: relative;
+    }
+
+    .score-badge {
+        position: absolute;
+        top: -30px;
+        right: 10px;
+        background: #4CAF50;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: bold;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     .rarity {
