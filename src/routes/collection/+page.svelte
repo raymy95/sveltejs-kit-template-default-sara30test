@@ -31,7 +31,10 @@
                 cards = allCards;
             }
 
-            if ($auth.userId) {
+            if ($auth.isAdmin) {
+                // Admin sees all cards as unlocked
+                unlockedCards = new Set(cards.map(card => card.id));
+            } else if ($auth.userId) {
                 const { data: userCards, error: userCardsError } = await supabase
                     .from('user_cards')
                     .select('card_id')
@@ -109,7 +112,8 @@
                         // Close scanner and redirect
                         showQRScanner = false;
                         const token = $page.url.searchParams.get('token');
-                        goto(`/card/${matchingCard.id}?token=${token}`);
+                        const adminParam = $auth.isAdmin ? '&admin=true' : '';
+                        goto(`/card/${matchingCard.id}?token=${token}${adminParam}`);
 
                     } catch (e) {
                         console.error('QR scan error:', e);
@@ -140,18 +144,19 @@
     }
 
     function viewCard(cardId) {
-        if (!$auth.userId) {
+        if (!$auth.userId && !$auth.isAdmin) {
             pageError = 'Veuillez vous connecter d\'abord';
             return;
         }
 
-        if (!unlockedCards.has(cardId)) {
+        if (!unlockedCards.has(cardId) && !$auth.isAdmin) {
             pageError = 'Vous devez d\'abord débloquer cette carte';
             return;
         }
 
         const token = $page.url.searchParams.get('token');
-        goto(`/card/${cardId}?token=${token}`);
+        const adminParam = $auth.isAdmin ? '&admin=true' : '';
+        goto(`/card/${cardId}?token=${token}${adminParam}`);
     }
 
     // Cleanup on unmount
@@ -170,7 +175,7 @@
 <div class="container">
     <h1>Ta Collection de Cartes</h1>
     
-    {#if !$auth.isAuthenticated}
+    {#if !$auth.isAuthenticated && !$auth.isAdmin}
         <div class="login-prompt">
             <p>Veuillez vous connecter pour voir et débloquer des cartes.</p>
             <button on:click={() => goto(`/?token=${$page.url.searchParams.get('token')}`)}>
@@ -182,23 +187,34 @@
     {:else if pageError}
         <p class="error">{pageError}</p>
     {:else}
-        <div class="scan-button-container">
-            <button class="scan-button" on:click={startQRScanner}>
-                Scanner un QR Code
-            </button>
-        </div>
+        {#if !$auth.isAdmin}
+            <div class="scan-button-container">
+                <button class="scan-button" on:click={startQRScanner}>
+                    Scanner un QR Code
+                </button>
+            </div>
+        {/if}
 
         <div class="cards-grid">
             {#each cards as card}
-                <div class="card {unlockedCards.has(card.id) ? 'unlocked' : 'locked'}"
-                     on:click={() => unlockedCards.has(card.id) && viewCard(card.id)}>
-                    <img src={unlockedCards.has(card.id) ? card.image_url : lockedCardImage} 
-                         alt={unlockedCards.has(card.id) ? card.name : 'Carte verrouillée'} />
+                <div class="card {unlockedCards.has(card.id) || $auth.isAdmin ? 'unlocked' : 'locked'}"
+                     on:click={() => (unlockedCards.has(card.id) || $auth.isAdmin) && viewCard(card.id)}>
+                    <img src={unlockedCards.has(card.id) || $auth.isAdmin ? card.image_url : lockedCardImage} 
+                         alt={unlockedCards.has(card.id) || $auth.isAdmin ? card.name : 'Carte verrouillée'} />
                     <div class="card-info">
-                        <h3>{unlockedCards.has(card.id) ? card.name : '???'}</h3>
-                        {#if unlockedCards.has(card.id)}
+                        <h3>{unlockedCards.has(card.id) || $auth.isAdmin ? card.name : '???'}</h3>
+                        {#if unlockedCards.has(card.id) || $auth.isAdmin}
                             <p>{card.description}</p>
                             <span class="rarity">{card.rarity}</span>
+                            {#if $auth.isAdmin}
+                                <div class="admin-info">
+                                    <p class="password">Password: {card.unlock_password}</p>
+                                    {#if card.question}
+                                        <p class="question">Q: {card.question}</p>
+                                        <p class="answer">A: {card.correct_answer}</p>
+                                    {/if}
+                                </div>
+                            {/if}
                         {/if}
                     </div>
                 </div>
@@ -310,6 +326,31 @@
         color: white;
         border-radius: 4px;
         font-size: 0.8rem;
+    }
+
+    .admin-info {
+        margin-top: 1rem;
+        padding: 0.5rem;
+        background: #f5f5f5;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
+    .admin-info p {
+        margin: 0.25rem 0;
+    }
+
+    .password {
+        color: #e91e63;
+        font-family: monospace;
+    }
+
+    .question {
+        color: #2196f3;
+    }
+
+    .answer {
+        color: #4caf50;
     }
 
     .modal-overlay {

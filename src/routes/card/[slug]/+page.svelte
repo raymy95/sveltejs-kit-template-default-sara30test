@@ -20,7 +20,7 @@
     let updatingDatabase = $state(false);
 
     async function loadCard() {
-        if (!initialized || !$auth.isAuthenticated || !$auth.userId || !data.cardId) {
+        if (!initialized || (!$auth.isAuthenticated && !$auth.isAdmin) || (!$auth.userId && !$auth.isAdmin) || !data.cardId) {
             return;
         }
 
@@ -40,35 +40,41 @@
                 return;
             }
 
-            const { data: userCard, error: userCardError } = await supabase
-                .from('user_cards')
-                .select('*')
-                .eq('user_id', $auth.userId)
-                .eq('card_id', data.cardId)
-                .single();
+            if ($auth.isAdmin) {
+                // Admin mode - show all card info without user_cards lookup
+                alreadyAnsweredCorrectly = true;
+                card = cardData;
+            } else {
+                const { data: userCard, error: userCardError } = await supabase
+                    .from('user_cards')
+                    .select('*')
+                    .eq('user_id', $auth.userId)
+                    .eq('card_id', data.cardId)
+                    .single();
 
-            if (userCardError && userCardError.code !== 'PGRST116') {
-                throw userCardError;
+                if (userCardError && userCardError.code !== 'PGRST116') {
+                    throw userCardError;
+                }
+
+                if (!userCard) {
+                    goto(`/collection?token=${$page.url.searchParams.get('token')}`);
+                    return;
+                }
+
+                alreadyAnsweredCorrectly = userCard.answered_correctly || false;
+                wrongAnswers = userCard.wrong_answers || 0;
+
+                if (cardData.question && cardData.correct_answer && !alreadyAnsweredCorrectly) {
+                    answers = [
+                        { id:1, text: cardData.correct_answer, isCorrect: true, isChecked:false },
+                        { id:2, text: cardData.wrong_answer_1, isCorrect: false, isChecked:false },
+                        { id:3, text: cardData.wrong_answer_2, isCorrect: false, isChecked:false },
+                        { id:4, text: cardData.wrong_answer_3, isCorrect: false, isChecked:false }
+                    ].sort(() => Math.random() - 0.5);
+                }
+
+                card = cardData;
             }
-
-            if (!userCard) {
-                goto(`/collection?token=${$page.url.searchParams.get('token')}`);
-                return;
-            }
-
-            alreadyAnsweredCorrectly = userCard.answered_correctly || false;
-            wrongAnswers = userCard.wrong_answers || 0;
-
-            if (cardData.question && cardData.correct_answer && !alreadyAnsweredCorrectly) {
-                answers = [
-                    { id:1, text: cardData.correct_answer, isCorrect: true, isChecked:false },
-                    { id:2, text: cardData.wrong_answer_1, isCorrect: false, isChecked:false },
-                    { id:3, text: cardData.wrong_answer_2, isCorrect: false, isChecked:false },
-                    { id:4, text: cardData.wrong_answer_3, isCorrect: false, isChecked:false }
-                ].sort(() => Math.random() - 0.5);
-            }
-
-            card = cardData;
         } catch (e) {
             console.error('Error loading card:', e);
             error = 'Échec du chargement de la carte';
@@ -78,7 +84,7 @@
     }
 
     async function checkAnswer(answer) {
-        if (!$auth.userId || !data.cardId || updatingDatabase || correctAnswerRevealed) return;
+        if (!$auth.userId || !data.cardId || updatingDatabase || correctAnswerRevealed || $auth.isAdmin) return;
 
         try {
             if (answer.isCorrect) {
@@ -95,10 +101,8 @@
                 alreadyAnsweredCorrectly = true;
             } else {
                 selectedAnswers.add(answer.id);
-                selectedAnswers = selectedAnswers; // Trigger reactivity
-              answer.isChecked = true;
-              console.log(selectedAnswers);
-               console.log(selectedAnswers.has(answer.id));
+                selectedAnswers = selectedAnswers;
+                answer.isChecked = true;
                 wrongAnswers++;
 
                 const { error: updateError } = await supabase.rpc('update_card_score', {
@@ -118,7 +122,9 @@
     }
 
     function goBack() {
-        goto(`/collection?token=${$page.url.searchParams.get('token')}`);
+        const token = $page.url.searchParams.get('token');
+        const adminParam = $auth.isAdmin ? '&admin=true' : '';
+        goto(`/collection?token=${token}${adminParam}`);
     }
 
     onMount(() => {
@@ -127,9 +133,9 @@
     });
 
     $effect(() => {
-        if (initialized && $auth.isAuthenticated && $auth.userId && data.cardId) {
+        if (initialized && ($auth.isAuthenticated || $auth.isAdmin) && ($auth.userId || $auth.isAdmin) && data.cardId) {
             loadCard();
-        } else if (initialized && !$auth.isAuthenticated) {
+        } else if (initialized && !$auth.isAuthenticated && !$auth.isAdmin) {
             goto(`/?token=${$page.url.searchParams.get('token')}`);
         }
     });
@@ -150,7 +156,7 @@
             <p class="error">{error}</p>
             <button class="back-button" on:click={goBack}>← Retour à la Collection</button>
         </div>
-    {:else if !initialized || !$auth.isAuthenticated}
+    {:else if !initialized || (!$auth.isAuthenticated && !$auth.isAdmin)}
         <div class="loading">
             <p>Initialisation...</p>
         </div>
@@ -163,10 +169,16 @@
                 <h1>{card.name}</h1>
                 <p class="description">{card.description}</p>
                 <span class="rarity">{card.rarity}</span>
+                
+                {#if $auth.isAdmin}
+                    <div class="admin-info">
+                        <p class="password">Password: {card.unlock_password}</p>
+                    </div>
+                {/if}
             </div>
         </div>
 
-        {#if card.question}
+        {#if card.question && !$auth.isAdmin}
             <div class="question-section">
                 <h2>Question :</h2>
                 <p class="question">{card.question}</p>
@@ -209,6 +221,20 @@
                         {/if}
                     </div>
                 {/if}
+            </div>
+        {:else if card.question && $auth.isAdmin}
+            <div class="question-section admin">
+                <h2>Question :</h2>
+                <p class="question">{card.question}</p>
+                <div class="admin-answers">
+                    <p class="correct-answer">Bonne réponse : {card.correct_answer}</p>
+                    <p>Mauvaises réponses :</p>
+                    <ul>
+                        <li>{card.wrong_answer_1}</li>
+                        <li>{card.wrong_answer_2}</li>
+                        <li>{card.wrong_answer_3}</li>
+                    </ul>
+                </div>
             </div>
         {/if}
     {/if}
@@ -276,12 +302,48 @@
         font-size: 0.8rem;
     }
 
+    .admin-info {
+        margin-top: 1rem;
+        padding: 0.5rem;
+        background: #f5f5f5;
+        border-radius: 4px;
+    }
+
+    .admin-info .password {
+        color: #e91e63;
+        font-family: monospace;
+        margin: 0;
+    }
+
     .question-section {
         background: white;
         border-radius: 8px;
         padding: 2rem;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         margin-top: 2rem;
+    }
+
+    .question-section.admin .admin-answers {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #f5f5f5;
+        border-radius: 4px;
+    }
+
+    .admin-answers .correct-answer {
+        color: #4caf50;
+        font-weight: bold;
+    }
+
+    .admin-answers ul {
+        list-style-type: none;
+        padding: 0;
+        margin: 0.5rem 0;
+    }
+
+    .admin-answers li {
+        color: #f44336;
+        margin: 0.25rem 0;
     }
 
     .question {

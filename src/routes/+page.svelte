@@ -5,10 +5,30 @@
     
     let username = '';
     let error = '';
+    let initialized = false;
 
     $effect(() => {
-        auth.initialize();
+        if (!initialized) {
+            auth.initialize();
+            initialized = true;
+            
+            // Check for admin mode in URL only once after initialization
+            const isAdmin = $page.url.searchParams.get('admin') === 'true';
+            if (isAdmin && !$auth.isAdmin) {
+                handleAdminLogin();
+            }
+        }
     });
+
+    async function handleAdminLogin() {
+        try {
+            await auth.login('Admin', true);
+            goto(`/collection?token=${$page.url.searchParams.get('token')}&admin=true`);
+        } catch (e) {
+            console.error('Admin login error:', e);
+            error = 'Échec de la connexion admin';
+        }
+    }
 
     async function handleLogin() {
         if (!username.trim()) {
@@ -38,7 +58,7 @@
             <div class="welcome-back">
                 <h2>Connecté en tant que {$auth.username}</h2>
                 <p>Prêt à collectionner des cartes ?</p>
-                <button on:click={() => goto(`/collection?token=${$page.url.searchParams.get('token')}`)}>
+                <button on:click={() => goto(`/collection?token=${$page.url.searchParams.get('token')}${$auth.isAdmin ? '&admin=true' : ''}`)}>
                     Voir ma Collection
                 </button>
             </div>

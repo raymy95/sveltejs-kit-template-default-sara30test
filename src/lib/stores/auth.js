@@ -6,14 +6,32 @@ const createAuthStore = () => {
     const { subscribe, set, update } = writable({ 
         isAuthenticated: false, 
         username: null, 
-        userId: null 
+        userId: null,
+        isAdmin: false
     });
 
     return {
         subscribe,
-        login: async (username) => {
+        login: async (username, isAdmin = false) => {
             try {
-                // Check if user exists
+                if (isAdmin) {
+                    // Admin mode - bypass database auth
+                    const authState = { 
+                        isAuthenticated: true, 
+                        username: 'Admin',
+                        userId: 'admin',
+                        isAdmin: true
+                    };
+
+                    if (browser) {
+                        localStorage.setItem('authState', JSON.stringify(authState));
+                    }
+
+                    set(authState);
+                    return { id: 'admin', username: 'Admin' };
+                }
+
+                // Regular user authentication
                 let { data: existingUser, error: selectError } = await supabase
                     .from('users')
                     .select('id, username')
@@ -42,7 +60,8 @@ const createAuthStore = () => {
                 const authState = { 
                     isAuthenticated: true, 
                     username: user.username, 
-                    userId: user.id 
+                    userId: user.id,
+                    isAdmin: false
                 };
 
                 if (browser) {
@@ -60,7 +79,8 @@ const createAuthStore = () => {
             const authState = { 
                 isAuthenticated: false, 
                 username: null, 
-                userId: null 
+                userId: null,
+                isAdmin: false
             };
 
             if (browser) {
