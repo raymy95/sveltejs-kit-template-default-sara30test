@@ -8,6 +8,7 @@
     
     let cards = [];
     let unlockedCards = new Set();
+    let answeredCards = new Map(); // Map to store answered status
     let modalError = '';
     let pageError = '';
     let loading = true;
@@ -34,16 +35,19 @@
             if ($auth.isAdmin) {
                 // Admin sees all cards as unlocked
                 unlockedCards = new Set(cards.map(card => card.id));
+                // Admin sees all cards as answered correctly
+                answeredCards = new Map(cards.map(card => [card.id, true]));
             } else if ($auth.userId) {
                 const { data: userCards, error: userCardsError } = await supabase
                     .from('user_cards')
-                    .select('card_id')
+                    .select('card_id, answered_correctly')
                     .eq('user_id', $auth.userId);
                 
                 if (userCardsError) throw userCardsError;
                 
                 if (userCards) {
                     unlockedCards = new Set(userCards.map(uc => uc.card_id));
+                    answeredCards = new Map(userCards.map(uc => [uc.card_id, uc.answered_correctly]));
                 }
             }
         } catch (e) {
@@ -108,6 +112,8 @@
                         // Update local state
                         unlockedCards.add(matchingCard.id);
                         unlockedCards = unlockedCards;
+                        answeredCards.set(matchingCard.id, false);
+                        answeredCards = answeredCards;
 
                         // Close scanner and redirect
                         showQRScanner = false;
@@ -197,7 +203,7 @@
 
         <div class="cards-grid">
             {#each cards as card}
-                <div class="card {unlockedCards.has(card.id) || $auth.isAdmin ? 'unlocked' : 'locked'}"
+                <div class="card {unlockedCards.has(card.id) || $auth.isAdmin ? 'unlocked' : 'locked'} {unlockedCards.has(card.id) && answeredCards.get(card.id) ? 'answered-correctly' : ''} {unlockedCards.has(card.id) && !answeredCards.get(card.id) ? 'not-answered' : ''}"
                      on:click={() => (unlockedCards.has(card.id) || $auth.isAdmin) && viewCard(card.id)}>
                     <img src={unlockedCards.has(card.id) || $auth.isAdmin ? card.image_url : lockedCardImage} 
                          alt={unlockedCards.has(card.id) || $auth.isAdmin ? card.name : 'Carte verrouillée'} />
@@ -294,6 +300,7 @@
         overflow: hidden;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         transition: transform 0.2s;
+        border: 3px solid transparent;
     }
 
     .card.unlocked {
@@ -307,6 +314,14 @@
     .card.locked {
         filter: grayscale(1);
         cursor: not-allowed;
+    }
+
+    .card.answered-correctly {
+        border-color: #4CAF50;
+    }
+
+    .card.not-answered {
+        border-color: #f44336;
     }
 
     .card img {
