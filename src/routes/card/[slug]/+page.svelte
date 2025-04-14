@@ -167,8 +167,6 @@
             <img src={card.image_url} alt={card.name} />
             <div class="card-info">
                 <h1>{card.name}</h1>
-                <p class="description">{card.description}</p>
-                <span class="rarity">{card.rarity}</span>
                 
                 {#if $auth.isAdmin}
                     <div class="admin-info">
@@ -286,20 +284,6 @@
 
     .card-info {
         padding: 2rem;
-    }
-
-    .description {
-        margin: 1rem 0;
-        line-height: 1.6;
-    }
-
-    .rarity {
-        display: inline-block;
-        padding: 0.25rem 0.5rem;
-        background: var(--color-theme-1);
-        color: white;
-        border-radius: 4px;
-        font-size: 0.8rem;
     }
 
     .admin-info {

@@ -214,23 +214,19 @@
                          alt={unlockedCards.has(card.id) || $auth.isAdmin ? card.name : 'Carte verrouillée'} />
                     <div class="card-info">
                         <h3>{unlockedCards.has(card.id) || $auth.isAdmin ? card.name : '???'}</h3>
-                        {#if unlockedCards.has(card.id) || $auth.isAdmin}
-                            <p>{card.description}</p>
-                            <span class="rarity">{card.rarity}</span>
-                            {#if answeredCards.get(card.id)}
-                                <div class="score-badge">
-                                    +{cardScores.get(card.id)} points
-                                </div>
-                            {/if}
-                            {#if $auth.isAdmin}
-                                <div class="admin-info">
-                                    <p class="password">Password: {card.unlock_password}</p>
-                                    {#if card.question}
-                                        <p class="question">Q: {card.question}</p>
-                                        <p class="answer">A: {card.correct_answer}</p>
-                                    {/if}
-                                </div>
-                            {/if}
+                        {#if answeredCards.get(card.id)}
+                            <div class="score-badge">
+                                +{cardScores.get(card.id)} points
+                            </div>
+                        {/if}
+                        {#if $auth.isAdmin}
+                            <div class="admin-info">
+                                <p class="password">Password: {card.unlock_password}</p>
+                                {#if card.question}
+                                    <p class="question">Q: {card.question}</p>
+                                    <p class="answer">A: {card.correct_answer}</p>
+                                {/if}
+                            </div>
                         {/if}
                     </div>
                 </div>
@@ -357,15 +353,6 @@
         font-size: 0.9rem;
         font-weight: bold;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    .rarity {
-        display: inline-block;
-        padding: 0.25rem 0.5rem;
-        background: var(--color-theme-1);
-        color: white;
-        border-radius: 4px;
-        font-size: 0.8rem;
     }
 
     .admin-info {
