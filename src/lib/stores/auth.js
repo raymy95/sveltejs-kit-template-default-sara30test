@@ -36,9 +36,12 @@ const createAuthStore = () => {
                     .from('users')
                     .select('id, username')
                     .eq('username', username)
-                    .single();
+                    .maybeSingle();
 
-                if (selectError && selectError.code !== 'PGRST116') throw selectError;
+                // Only throw if it's an actual error, not just "no rows found"
+                if (selectError && selectError.code !== 'PGRST116') {
+                    throw selectError;
+                }
 
                 let user;
                 

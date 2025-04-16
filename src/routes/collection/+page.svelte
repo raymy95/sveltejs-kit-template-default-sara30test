@@ -25,17 +25,18 @@
         try {
             auth.initialize();
 
-            const { data: allCards, error: cardsError } = await supabase
-                .from('cards')
-                .select('*');
-            
-            if (cardsError) throw cardsError;
-            
-            if (allCards) {
-                cards = allCards;
-            }
-
             if ($auth.isAdmin) {
+                // Admin sees all cards
+                const { data: allCards, error: cardsError } = await supabase
+                    .from('cards')
+                    .select('*');
+                
+                if (cardsError) throw cardsError;
+                
+                if (allCards) {
+                    cards = allCards;
+                }
+
                 // Get total users count
                 const { count: userCount, error: userCountError } = await supabase
                     .from('users')
@@ -65,16 +66,39 @@
                 // Admin sees maximum score for all cards
                 cardScores = new Map(cards.map(card => [card.id, 5]));
             } else if ($auth.userId) {
-                const { data: userCards, error: userCardsError } = await supabase
+                // For regular users, first get their unlocked cards info
+                const { data: userCardsData, error: userCardsError } = await supabase
                     .from('user_cards')
-                    .select('card_id, answered_correctly, score, wrong_answers');
+                    .select('card_id, answered_correctly, score, wrong_answers')
+                    .eq('user_id', $auth.userId);
                 
                 if (userCardsError) throw userCardsError;
+
+                // Initialize unlocked cards set and maps
+                unlockedCards = new Set(userCardsData?.map(uc => uc.card_id) || []);
+                answeredCards = new Map(userCardsData?.map(uc => [uc.card_id, uc.answered_correctly]) || []);
+                cardScores = new Map(userCardsData?.map(uc => [uc.card_id, uc.score]) || []);
+
+                // Get all cards but only show full details for unlocked ones
+                const { data: allCards, error: cardsError } = await supabase
+                    .from('cards')
+                    .select('*');
                 
-                if (userCards) {
-                    unlockedCards = new Set(userCards.map(uc => uc.card_id));
-                    answeredCards = new Map(userCards.map(uc => [uc.card_id, uc.answered_correctly]));
-                    cardScores = new Map(userCards.map(uc => [uc.card_id, uc.score]));
+                if (cardsError) throw cardsError;
+                
+                if (allCards) {
+                    cards = allCards;
+                }
+            } else {
+                // For non-authenticated users, just get basic card info
+                const { data: allCards, error: cardsError } = await supabase
+                    .from('cards')
+                    .select('id, name');
+                
+                if (cardsError) throw cardsError;
+                
+                if (allCards) {
+                    cards = allCards;
                 }
             }
         } catch (e) {
@@ -238,7 +262,7 @@
                          alt={unlockedCards.has(card.id) || $auth.isAdmin ? card.name : 'Carte verrouillée'} />
                     <div class="card-info">
                         <h3>{unlockedCards.has(card.id) || $auth.isAdmin ? card.name : '???'}</h3>
-                        {#if answeredCards.get(card.id)}
+                        {#if unlockedCards.has(card.id) && answeredCards.get(card.id)}
                             <div class="score-badge">
                                 +{cardScores.get(card.id)} points
                             </div>
